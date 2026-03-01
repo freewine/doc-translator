@@ -1,0 +1,127 @@
+{
+  "test_environment": {
+    "backend_url": "http://localhost:8000",
+    "frontend_url": "http://localhost:5173",
+    "graphql_endpoint": "http://localhost:8000/api/graphql",
+    "health_endpoint": "http://localhost:8000/api/health",
+    "upload_endpoint": "http://localhost:8000/api/upload",
+    "download_endpoint": "http://localhost:8000/api/download"
+  },
+  "test_credentials_note": "These are test-only defaults for E2E testing, not production credentials",
+  "test_credentials": {
+    "username": "admin",
+    "password": "admin123"
+  },
+  "viewports": {
+    "mobile": {
+      "width": 375,
+      "height": 667,
+      "description": "iPhone SE"
+    },
+    "tablet": {
+      "width": 768,
+      "height": 1024,
+      "description": "iPad"
+    },
+    "desktop": {
+      "width": 1920,
+      "height": 1080,
+      "description": "Desktop"
+    }
+  },
+  "test_timeouts": {
+    "page_load": 10,
+    "element_wait": 5,
+    "translation_job": 120,
+    "file_upload": 30,
+    "download": 15,
+    "polling_interval": 2
+  },
+  "test_files": {
+    "simple_chinese": {
+      "filename": "test_chinese_simple.xlsx",
+      "content": {
+        "A1": "你好世界",
+        "B1": "这是一个测试",
+        "A2": "中文翻译测试",
+        "B2": "文档文件处理"
+      }
+    },
+    "mixed_content": {
+      "filename": "test_mixed_content.xlsx",
+      "content": {
+        "A1": "标题文本",
+        "B1": "English text (should not be translated)",
+        "A2": "红色文本",
+        "B2": "123456"
+      },
+      "formatting": {
+        "A1": {"bold": true, "size": 14},
+        "A2": {"color": "FF0000"}
+      }
+    },
+    "multiple_sheets": {
+      "filename": "test_multiple_sheets.xlsx",
+      "sheets": {
+        "工作表1": {
+          "A1": "第一个工作表"
+        },
+        "工作表2": {
+          "A1": "第二个工作表",
+          "B1": "更多中文内容"
+        }
+      }
+    }
+  },
+  "expected_behaviors": {
+    "login": {
+      "valid_credentials": "redirect_to_main_page",
+      "invalid_credentials": "show_error_message"
+    },
+    "file_upload": {
+      "valid_xlsx": "show_in_file_list",
+      "invalid_extension": "show_error_message",
+      "large_file": "show_progress_indicator"
+    },
+    "translation": {
+      "chinese_text": "translate_to_vietnamese",
+      "english_text": "leave_unchanged",
+      "numbers": "leave_unchanged",
+      "formulas": "preserve_unchanged"
+    },
+    "progress_tracking": {
+      "polling_interval": 2,
+      "progress_updates": "real_time",
+      "completion": "stop_polling"
+    },
+    "responsive_design": {
+      "mobile": "stacked_layout",
+      "tablet": "optimized_spacing",
+      "desktop": "full_features"
+    }
+  },
+  "graphql_operations": {
+    "login": "mutation Login($username: String!, $password: String!) { login(username: $username, password: $password) { token user { username } } }",
+    "get_jobs": "query GetJobs { jobs { id status progress filesTotal filesCompleted createdAt completedAt } }",
+    "get_job": "query GetJob($id: String!) { job(id: $id) { id status progress filesTotal filesCompleted filesProcessing { filename progress cellsTotal cellsTranslated } filesFailed { filename error } completedFiles { originalFilename outputFilename cellsTranslated } createdAt completedAt } }",
+    "get_language_pairs": "query GetLanguagePairs { languagePairs { id sourceLanguage targetLanguage sourceLanguageCode targetLanguageCode } }",
+    "add_language_pair": "mutation AddLanguagePair($sourceLanguage: String!, $targetLanguage: String!, $sourceLanguageCode: String!, $targetLanguageCode: String!) { addLanguagePair(sourceLanguage: $sourceLanguage, targetLanguage: $targetLanguage, sourceLanguageCode: $sourceLanguageCode, targetLanguageCode: $targetLanguageCode) { id sourceLanguage targetLanguage } }",
+    "remove_language_pair": "mutation RemoveLanguagePair($id: String!) { removeLanguagePair(id: $id) }",
+    "create_translation_job": "mutation CreateTranslationJob($fileIds: [String!]!, $languagePairId: String!) { createTranslationJob(fileIds: $fileIds, languagePairId: $languagePairId) { id status progress filesTotal } }",
+    "get_model_config": "query GetModelConfig { modelConfig { modelId modelName availableModels { name id } } }",
+    "update_model": "mutation UpdateModel($modelId: String!) { updateModel(modelId: $modelId) { modelId modelName } }"
+  },
+  "test_data_validation": {
+    "language_pairs": [
+      {
+        "source": "Chinese",
+        "target": "Vietnamese",
+        "source_code": "zh",
+        "target_code": "vi"
+      }
+    ],
+    "file_extensions": [".xlsx"],
+    "max_file_size_mb": 50,
+    "supported_browsers": ["Chrome", "Edge", "Firefox", "Safari"]
+  }
+}

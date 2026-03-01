@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Auto-Translate Localization Files",
+  "description": "Monitors changes to frontend localization files (en.ts, zh.ts, vi.ts) and automatically identifies new or modified text to generate translations for all configured target languages while maintaining proper context and locale-specific conventions.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A localization file was just modified. Please:\n\n1. Identify the new or modified text entries in the changed file\n2. Determine which language this file represents (en.ts = English, zh.ts = Chinese, vi.ts = Vietnamese)\n3. For each new/modified entry, generate translations for the OTHER two languages that don't have this change yet\n4. Update the corresponding locale files (en.ts, zh.ts, vi.ts) with the translations\n5. Ensure translations:\n   - Maintain proper context and meaning\n   - Follow locale-specific conventions (date formats, number formats, pluralization rules)\n   - Preserve any interpolation variables (e.g., {count}, {name})\n   - Match the existing code style and structure of each locale file\n\nShow me what changes you're making to each file."
+  },
+  "workspaceFolderName": "doc-translator",
+  "shortName": "auto-translate-locales"
+}

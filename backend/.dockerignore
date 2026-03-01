@@ -1,0 +1,66 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Build artifacts
+*.egg-info/
+doc_translation_backend.egg-info/
+dist/
+build/
+.eggs/
+
+# Test and coverage
+tests/
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+logs/
+*.log
+
+# env files (use .env.example as template)
+.env
+.env.local
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Documentation
+*.md
+
+# Scripts (DB setup, not needed at runtime)
+scripts/
+
+# uv lock file not needed (using --frozen)
+# uv.lock is needed for --frozen installs, keep it
+
+# Python version file (handled by Docker base image)
+.python-version

@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# uv
+.venv/
+uv.lock
+
+# Test artifacts
+e2e_test_report.json
+debug/
+screenshots/
+*.html
