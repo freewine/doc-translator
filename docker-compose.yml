@@ -1,0 +1,130 @@
+# Docker Compose configuration for Doc Translation System
+#
+# ============================================================================
+# AWS PERMISSIONS REQUIRED
+# ============================================================================
+#
+# The container needs AWS credentials with these permissions:
+#
+# S3 Permissions (on the specified bucket):
+#   - s3:PutObject      - Upload files to the bucket
+#   - s3:GetObject       - Download files from the bucket
+#   - s3:DeleteObject    - Delete files from the bucket
+#   - s3:ListBucket      - List files in the bucket
+#
+# DynamoDB Permissions (on all doc_translation_* tables):
+#   - dynamodb:CreateTable   - Auto-create tables on startup
+#   - dynamodb:DescribeTable - Check table existence on startup
+#   - dynamodb:PutItem       - Create records
+#   - dynamodb:GetItem       - Retrieve records
+#   - dynamodb:UpdateItem    - Update records
+#   - dynamodb:DeleteItem    - Delete records
+#   - dynamodb:Query         - Query with indexes
+#   - dynamodb:Scan          - List all records (admin)
+#
+# Bedrock Permissions:
+#   - bedrock:InvokeModel    - Call Bedrock Converse API for translation
+#
+# DynamoDB Tables (auto-created on startup):
+#   - doc_translation_jobs            - Job history
+#   - doc_translation_term_pairs      - Thesaurus term pairs
+#   - doc_translation_catalogs        - Thesaurus catalogs
+#   - doc_translation_users           - User accounts
+#   - doc_translation_language_pairs  - Language pair config
+#   - doc_translation_user_settings   - Per-user settings
+#   - doc_translation_global_config   - Global app config
+#
+# Example IAM Policy:
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Effect": "Allow",
+#       "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+#       "Resource": "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+#     },
+#     {
+#       "Effect": "Allow",
+#       "Action": ["s3:ListBucket"],
+#       "Resource": "arn:aws:s3:::YOUR_BUCKET_NAME"
+#     },
+#     {
+#       "Effect": "Allow",
+#       "Action": [
+#         "dynamodb:CreateTable",
+#         "dynamodb:DescribeTable",
+#         "dynamodb:PutItem",
+#         "dynamodb:GetItem",
+#         "dynamodb:UpdateItem",
+#         "dynamodb:DeleteItem",
+#         "dynamodb:Query",
+#         "dynamodb:Scan"
+#       ],
+#       "Resource": [
+#         "arn:aws:dynamodb:*:*:table/doc_translation_*",
+#         "arn:aws:dynamodb:*:*:table/doc_translation_*/index/*"
+#       ]
+#     },
+#     {
+#       "Effect": "Allow",
+#       "Action": ["bedrock:InvokeModel"],
+#       "Resource": "*"
+#     }
+#   ]
+# }
+# ============================================================================
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: doc-translation-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - backend_logs:/app/logs
+    networks:
+      - doc-translation-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api/graphql}
+    container_name: doc-translation-frontend
+    ports:
+      - "3000:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - doc-translation-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  backend_logs:
+    driver: local
+
+networks:
+  doc-translation-network:
+    driver: bridge

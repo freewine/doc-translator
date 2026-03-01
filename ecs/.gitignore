@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# CDK output
+cdk.out/
+
+# TypeScript build
+*.js
+!jest.config.js
+*.d.ts
+*.js.map
+
+# CDK context (contains account-specific values)
+cdk.context.json
+
+# Environment
+.env
+.env.*
+!.env.example
