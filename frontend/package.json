@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
-    "@apollo/client": "^4.0.9",
+    "@apollo/client": "^4.1.6",
     "ant-design-vue": "^4.2.6",
     "graphql": "^16.12.0",
     "pinia": "^3.0.4",
