@@ -47,16 +47,17 @@ Internet ──────────►│  │  ┌────────�
 cd ecs
 npm install
 
-# Bootstrap CDK (only required once per AWS account/region)
-npx cdk bootstrap
-
 # Set required environment variables
 export AWS_REGION=your-region-code
 export S3_BUCKET=your-s3-bucket-name
+# Use: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 export JWT_SECRET=your-jwt-secret-key
 
 # Create S3 bucket (if not already created)
 aws s3 mb s3://$S3_BUCKET --region $AWS_REGION
+
+# Bootstrap CDK (only required once per AWS account/region)
+npx cdk bootstrap
 
 # Deploy
 npx cdk deploy
@@ -71,6 +72,7 @@ Parameters are provided via CDK context (`-c`) or environment variables. Context
 | `s3Bucket` | `S3_BUCKET` | Yes | S3 bucket name for file storage |
 | `jwtSecret` | `JWT_SECRET` | Yes | JWT signing secret |
 | `region` | `CDK_DEFAULT_REGION` | No | AWS region (default: us-west-2) |
+| `cpuArch` | `CPU_ARCH` | No | CPU architecture: `arm64` or `x64` (auto-detected from host) |
 | - | `CDK_DEFAULT_ACCOUNT` | No | AWS account ID (auto-detected) |
 
 ## CDK Commands

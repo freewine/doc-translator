@@ -4,7 +4,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
+import { DockerImageAsset, Platform } from 'aws-cdk-lib/aws-ecr-assets';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -25,6 +25,8 @@ export interface DocTranslationStackProps extends cdk.StackProps {
   logLevel?: string;
   /** Debug mode (default: "false") */
   debug?: string;
+  /** Use ARM64 architecture for Fargate tasks and Docker builds (default: false / X86_64) */
+  useArm64?: boolean;
 }
 
 export class DocTranslationStack extends cdk.Stack {
@@ -55,6 +57,9 @@ export class DocTranslationStack extends cdk.Stack {
     super(scope, id, props);
 
     const projectName = props.projectName ?? 'doc-translation';
+    const useArm64 = props.useArm64 ?? false;
+    const cpuArchitecture = useArm64 ? ecs.CpuArchitecture.ARM64 : ecs.CpuArchitecture.X86_64;
+    const dockerPlatform = useArm64 ? Platform.LINUX_ARM64 : Platform.LINUX_AMD64;
 
     // --- VPC and Networking (Requirement 2) ---
     this.vpc = new ec2.Vpc(this, 'Vpc', {
@@ -162,11 +167,13 @@ export class DocTranslationStack extends cdk.Stack {
 
     const backendImage = new DockerImageAsset(this, 'BackendImage', {
       directory: path.join(__dirname, '../../backend'),
+      platform: dockerPlatform,
     });
 
     const frontendImage = new DockerImageAsset(this, 'FrontendImage', {
       directory: path.join(__dirname, '../../frontend'),
       buildArgs: { VITE_API_URL: '/api/graphql' },
+      platform: dockerPlatform,
     });
 
     // --- ECS Cluster (Requirement 4.1) ---
@@ -189,6 +196,10 @@ export class DocTranslationStack extends cdk.Stack {
       memoryLimitMiB: 1024,
       executionRole: this.executionRole,
       taskRole: this.taskRole,
+      runtimePlatform: {
+        cpuArchitecture,
+        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+      },
     });
 
     this.backendContainer = this.backendTaskDef.addContainer('backend', {
@@ -240,6 +251,10 @@ export class DocTranslationStack extends cdk.Stack {
       memoryLimitMiB: 512,
       executionRole: this.executionRole,
       // No task role for frontend (Requirement 7.6)
+      runtimePlatform: {
+        cpuArchitecture,
+        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+      },
     });
 
     frontendTaskDef.addContainer('frontend', {

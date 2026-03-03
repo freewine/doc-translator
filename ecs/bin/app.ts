@@ -2,6 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { DocTranslationStack } from '../lib/doc-translation-stack';
+import * as os from 'os';
 
 const app = new cdk.App();
 
@@ -31,6 +32,11 @@ const maxFileSize = app.node.tryGetContext('maxFileSize') || process.env.MAX_FIL
 const logLevel = app.node.tryGetContext('logLevel') || process.env.LOG_LEVEL || 'INFO';
 const debug = app.node.tryGetContext('debug') || process.env.DEBUG || 'false';
 
+// CPU architecture: detect from host, allow override via context or env var
+// os.arch() returns 'arm64' on ARM64, 'x64' on x86_64
+const cpuArch = app.node.tryGetContext('cpuArch') || process.env.CPU_ARCH || os.arch();
+const useArm64 = cpuArch === 'arm64';
+
 new DocTranslationStack(app, 'DocTranslationStack', {
   s3Bucket,
   jwtSecret,
@@ -39,6 +45,7 @@ new DocTranslationStack(app, 'DocTranslationStack', {
   maxFileSize,
   logLevel,
   debug,
+  useArm64,
   env: {
     region,
     account,
