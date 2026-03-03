@@ -19,6 +19,7 @@ uv run pytest tests/test_foo.py -v  # Run single test file
 uv run pytest -k "test_name"     # Filter specific tests
 uv run pytest -q --tb=short      # Minimal output (preferred)
 uv run python -m src.cli.commands create-admin  # CLI user management
+uv run python -m src.cli.commands create-tables # Create DynamoDB tables
 ```
 
 ### Frontend (Vue 3 / npm)
@@ -54,7 +55,7 @@ npx cdk destroy                 # Tear down all resources
 
 ## First-Time Setup
 
-On first run, the backend auto-creates a default admin user if none exists: `admin` / `admin@123`. Change this immediately in production. Alternatively, use the CLI: `uv run python -m src.cli.commands create-admin`.
+On first run, the backend auto-creates a default admin user if none exists. A random temporary password is generated and logged to the console once (check logs for `Default admin created with temporary password: <random>`). Change this immediately. Alternatively, use the CLI: `uv run python -m src.cli.commands create-admin --username admin --password <pass>`.
 
 ## Architecture
 
@@ -157,7 +158,7 @@ Optional:
 
 ## API Endpoints (all under /api prefix)
 
-- **GraphQL**: `/api/graphql` (GraphiQL playground at GET)
+- **GraphQL**: `/api/graphql` (GraphiQL playground available when `DEBUG=true`)
 - **REST**: `POST /api/upload`, `GET /api/download?job_id=&filename=`, `GET /api/health`
 
 ## Coding Standards
