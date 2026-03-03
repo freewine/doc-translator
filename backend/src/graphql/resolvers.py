@@ -39,6 +39,12 @@ from ..models.job import JobStatus, TranslationJob
 
 logger = logging.getLogger(__name__)
 
+# Hold strong references to background tasks to prevent garbage collection.
+# Python's event loop only keeps weak references to tasks, so an unreferenced
+# task can be collected mid-execution. Tasks remove themselves from this set
+# when they complete.
+_background_tasks: set = set()
+
 
 class AuthenticationError(Exception):
     """Raised when authentication fails or is required."""
@@ -687,8 +693,10 @@ async def resolve_create_translation_job(
             shutil.rmtree(temp_input_dir, ignore_errors=True)
             shutil.rmtree(job_output_dir, ignore_errors=True)
 
-    asyncio.create_task(process_and_cleanup())
-    
+    task = asyncio.create_task(process_and_cleanup())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
     return convert_translation_job(job)
 
 
