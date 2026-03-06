@@ -29,6 +29,12 @@ export interface DocTranslationStackProps extends cdk.StackProps {
   useArm64?: boolean;
   /** Enable an internal (non-internet-facing) ALB for private access (default: false) */
   enableInternalAlb?: boolean;
+  /** VPC CIDR block (default: "10.0.0.0/16") */
+  vpcCidr?: string;
+  /** Comma-separated source CIDRs allowed to access the internal ALB on port 80 (default: "0.0.0.0/0").
+   *  Use a single "0.0.0.0/0" for open access, or list specific CIDRs for stricter control.
+   *  Example: "192.168.0.0/16,172.17.0.0/16,10.32.0.0/12" */
+  internalAlbSourceCidr?: string;
 }
 
 export class DocTranslationStack extends cdk.Stack {
@@ -67,10 +73,13 @@ export class DocTranslationStack extends cdk.Stack {
     const cpuArchitecture = useArm64 ? ecs.CpuArchitecture.ARM64 : ecs.CpuArchitecture.X86_64;
     const dockerPlatform = useArm64 ? Platform.LINUX_ARM64 : Platform.LINUX_AMD64;
 
+    const vpcCidr = props.vpcCidr ?? '10.0.0.0/16';
+    const internalAlbSourceCidr = props.internalAlbSourceCidr ?? '0.0.0.0/0';
+
     // --- VPC and Networking (Requirement 2) ---
     this.vpc = new ec2.Vpc(this, 'Vpc', {
       vpcName: `${projectName}-vpc`,
-      ipAddresses: ec2.IpAddresses.cidr('10.0.0.0/16'),
+      ipAddresses: ec2.IpAddresses.cidr(vpcCidr),
       maxAzs: 2,
       natGateways: 1,
       subnetConfiguration: [
@@ -378,11 +387,11 @@ export class DocTranslationStack extends cdk.Stack {
         vpc: this.vpc,
         description: 'Internal ALB Security Group',
       });
-      this.internalAlbSg.addIngressRule(
-        ec2.Peer.ipv4(this.vpc.vpcCidrBlock),
-        ec2.Port.tcp(80),
-        'Allow HTTP from VPC CIDR'
-      );
+      const sourceCidrs = internalAlbSourceCidr.split(',').map(c => c.trim()).filter(c => c.length > 0);
+      for (const cidr of sourceCidrs) {
+        const peer = cidr === '0.0.0.0/0' ? ec2.Peer.anyIpv4() : ec2.Peer.ipv4(cidr);
+        this.internalAlbSg.addIngressRule(peer, ec2.Port.tcp(80), `Allow HTTP from ${cidr}`);
+      }
 
       this.ecsSg.addIngressRule(this.internalAlbSg, ec2.Port.tcp(8000), 'Allow backend traffic from internal ALB');
       this.ecsSg.addIngressRule(this.internalAlbSg, ec2.Port.tcp(8080), 'Allow frontend traffic from internal ALB');
