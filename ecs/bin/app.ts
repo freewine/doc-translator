@@ -39,6 +39,9 @@ const useArm64 = cpuArch === 'arm64';
 
 const enableInternalAlb = (app.node.tryGetContext('enableInternalAlb') ?? process.env.ENABLE_INTERNAL_ALB ?? 'false') === 'true';
 
+const vpcCidr = app.node.tryGetContext('vpcCidr') || process.env.VPC_CIDR || '10.0.0.0/16';
+const internalAlbSourceCidr = app.node.tryGetContext('internalAlbSourceCidr') || process.env.INTERNAL_ALB_SOURCE_CIDR || '0.0.0.0/0';
+
 new DocTranslationStack(app, 'DocTranslationStack', {
   s3Bucket,
   jwtSecret,
@@ -49,6 +52,8 @@ new DocTranslationStack(app, 'DocTranslationStack', {
   debug,
   useArm64,
   enableInternalAlb,
+  vpcCidr,
+  internalAlbSourceCidr,
   env: {
     region,
     account,
