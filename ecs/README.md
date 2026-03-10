@@ -79,6 +79,8 @@ Parameters are provided via CDK context (`-c`) or environment variables. Context
 | `region` | `CDK_DEFAULT_REGION` | No | AWS region (default: us-west-2) |
 | `cpuArch` | `CPU_ARCH` | No | CPU architecture: `arm64` or `x64` (auto-detected from host) |
 | `enableInternalAlb` | `ENABLE_INTERNAL_ALB` | No | Enable internal ALB for private access (default: `false`) |
+| `vpcCidr` | `VPC_CIDR` | No | VPC CIDR block (default: `10.0.0.0/16`) |
+| `internalAlbSourceCidr` | `INTERNAL_ALB_SOURCE_CIDR` | No | Comma-separated source CIDRs allowed to access the internal ALB on port 80 (default: `0.0.0.0/0`). Multiple CIDRs supported, e.g. `192.168.0.0/16,172.17.0.0/16,10.32.0.0/12`. |
 | - | `CDK_DEFAULT_ACCOUNT` | No | AWS account ID (auto-detected) |
 
 ## CDK Commands
@@ -95,21 +97,44 @@ npx cdk destroy        # Delete all resources
 Enable the internal ALB to allow private access from within the VPC or connected networks (VPN, Direct Connect, VPC Peering, Transit Gateway) without traversing the public internet. This also serves as the foundation for AWS PrivateLink if cross-account access is needed later.
 
 ```bash
-# Deploy with internal ALB enabled
+# Deploy with internal ALB enabled (allows all sources by default)
 npx cdk deploy -c enableInternalAlb=true
 
-# Or via environment variable
+# Restrict internal ALB access to a corporate intranet CIDR
+npx cdk deploy -c enableInternalAlb=true -c internalAlbSourceCidr=172.16.0.0/12
+
+# Or via environment variables
 export ENABLE_INTERNAL_ALB=true
+export INTERNAL_ALB_SOURCE_CIDR=172.16.0.0/12
 npx cdk deploy
 ```
 
 When enabled, this creates:
 - An internal (non-internet-facing) ALB in private subnets
-- A security group allowing HTTP (port 80) from the VPC CIDR
+- A security group allowing HTTP (port 80) from `internalAlbSourceCidr` (default: `0.0.0.0/0`)
 - The same routing rules as the public ALB (`/` to frontend, `/api/*` to backend)
 - A CloudFormation output `InternalAlbDnsName` with the internal DNS name
 
 The internal ALB DNS name is only resolvable from within the VPC or connected networks.
+
+## Custom VPC CIDR
+
+By default the stack creates a VPC with CIDR `10.0.0.0/16`. If this conflicts with your on-premises or corporate network, override it with `vpcCidr`:
+
+```bash
+# Example: use 172.24.252.0/22 to avoid overlap with corporate intranet
+npx cdk deploy -c vpcCidr=172.24.252.0/22
+
+# Full private-access deployment example (SGP + IDC via TGW/DX)
+# internalAlbSourceCidr: comma-separated list of allowed source CIDRs
+npx cdk deploy \
+  -c enableInternalAlb=true \
+  -c vpcCidr=172.24.252.0/22 \
+  -c "internalAlbSourceCidr=192.168.0.0/16,172.17.0.0/16,172.21.0.0/22,10.13.0.0/16,10.30.0.0/16,10.32.0.0/12,10.49.0.0/16,10.64.0.0/10,10.128.0.0/16" \
+  --profile omsnaliming
+```
+
+> **Note:** Changing `vpcCidr` on an existing stack replaces the VPC and all dependent resources. This is a destructive change — plan for downtime or deploy a new stack.
 
 ## Post-Deployment
 
@@ -142,7 +167,7 @@ aws cloudformation describe-stacks \
 
 ### Network
 
-- VPC CIDR: 10.0.0.0/16, 2 availability zones
+- VPC CIDR: configurable via `vpcCidr` (default: `10.0.0.0/16`), 2 availability zones
 - Public subnets: Public ALB
 - Private subnets: ECS tasks (internet access via NAT Gateway), Internal ALB (if enabled)
 - VPC Gateway Endpoints: S3, DynamoDB (no NAT charges)
