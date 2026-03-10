@@ -31,8 +31,8 @@ export interface DocTranslationStackProps extends cdk.StackProps {
   enableInternalAlb?: boolean;
   /** VPC CIDR block (default: "10.0.0.0/16") */
   vpcCidr?: string;
-  /** Comma-separated source CIDRs allowed to access the internal ALB on port 80.
-   *  Defaults to the VPC CIDR if not specified.
+  /** Comma-separated source CIDRs allowed to access the internal ALB on port 80 (default: "0.0.0.0/0").
+   *  Use a single "0.0.0.0/0" for open access, or list specific CIDRs for stricter control.
    *  Example: "192.168.0.0/16,172.17.0.0/16,10.32.0.0/12" */
   internalAlbSourceCidr?: string;
 }
@@ -74,6 +74,7 @@ export class DocTranslationStack extends cdk.Stack {
     const dockerPlatform = useArm64 ? Platform.LINUX_ARM64 : Platform.LINUX_AMD64;
 
     const vpcCidr = props.vpcCidr ?? '10.0.0.0/16';
+    const internalAlbSourceCidr = props.internalAlbSourceCidr ?? '0.0.0.0/0';
 
     // --- VPC and Networking (Requirement 2) ---
     this.vpc = new ec2.Vpc(this, 'Vpc', {
@@ -386,9 +387,7 @@ export class DocTranslationStack extends cdk.Stack {
         vpc: this.vpc,
         description: 'Internal ALB Security Group',
       });
-      const sourceCidrs = props.internalAlbSourceCidr
-        ? props.internalAlbSourceCidr.split(',').map(c => c.trim()).filter(c => c.length > 0)
-        : [this.vpc.vpcCidrBlock];
+      const sourceCidrs = internalAlbSourceCidr.split(',').map(c => c.trim()).filter(c => c.length > 0);
       for (const cidr of sourceCidrs) {
         const peer = cidr === '0.0.0.0/0' ? ec2.Peer.anyIpv4() : ec2.Peer.ipv4(cidr);
         this.internalAlbSg.addIngressRule(peer, ec2.Port.tcp(80), `Allow HTTP from ${cidr}`);
