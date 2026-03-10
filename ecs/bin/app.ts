@@ -40,7 +40,22 @@ const useArm64 = cpuArch === 'arm64';
 const enableInternalAlb = (app.node.tryGetContext('enableInternalAlb') ?? process.env.ENABLE_INTERNAL_ALB ?? 'false') === 'true';
 
 const vpcCidr = app.node.tryGetContext('vpcCidr') || process.env.VPC_CIDR || '10.0.0.0/16';
-const internalAlbSourceCidr = app.node.tryGetContext('internalAlbSourceCidr') || process.env.INTERNAL_ALB_SOURCE_CIDR || '0.0.0.0/0';
+const internalAlbSourceCidr = app.node.tryGetContext('internalAlbSourceCidr') || process.env.INTERNAL_ALB_SOURCE_CIDR || undefined;
+
+// Validate CIDR format
+const CIDR_REGEX = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/\d{1,2}$/;
+
+if (vpcCidr && !CIDR_REGEX.test(vpcCidr)) {
+  throw new Error(`Invalid vpcCidr format: "${vpcCidr}". Expected CIDR notation (e.g., 10.0.0.0/16).`);
+}
+
+if (internalAlbSourceCidr) {
+  for (const cidr of internalAlbSourceCidr.split(',').map((c: string) => c.trim()).filter((c: string) => c)) {
+    if (!CIDR_REGEX.test(cidr)) {
+      throw new Error(`Invalid CIDR in internalAlbSourceCidr: "${cidr}". Expected CIDR notation (e.g., 192.168.0.0/16).`);
+    }
+  }
+}
 
 new DocTranslationStack(app, 'DocTranslationStack', {
   s3Bucket,
