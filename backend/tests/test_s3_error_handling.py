@@ -640,8 +640,9 @@ class TestOrchestratorS3ErrorHandling:
         # Create mock translation service
         mock_translation_service = Mock()
         mock_translation_service.batch_size = 10
+        from src.services.translation_service import TranslationResult
         mock_translation_service.batch_translate_async = AsyncMock(
-            side_effect=lambda texts, lp, tp: ["translated"] * len(texts)
+            side_effect=lambda texts, lp, tp: [TranslationResult(text="translated")] * len(texts)
         )
         
         # Create mock concurrent executor

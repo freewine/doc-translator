@@ -275,6 +275,57 @@ class PDFProcessor(DocumentProcessor):
             self.logger.error(f"Failed to write translated PDF document: {e}")
             return False
 
+    def _calculate_output_rect(
+        self,
+        line_bbox: tuple,
+        num_lines: int,
+        font_size: float,
+        page_height: float,
+        next_segment_top: float | None,
+    ) -> tuple[fitz.Rect, float]:
+        """
+        Calculate expanded rect and adjusted font size for multi-line output.
+
+        For append/interleaved modes, the output text has more lines than the
+        original. This method expands the rect downward and reduces font size
+        if needed to avoid overlapping with the next segment.
+
+        Returns:
+            Tuple of (expanded_rect, adjusted_font_size)
+        """
+        original_rect = fitz.Rect(line_bbox)
+
+        if num_lines <= 1:
+            return original_rect, font_size
+
+        original_height = original_rect.height
+        line_spacing = 1.3
+        needed_height = font_size * line_spacing * num_lines
+
+        # Determine max available vertical space
+        bottom_margin = 20
+        max_bottom = page_height - bottom_margin
+        if next_segment_top is not None:
+            max_bottom = min(max_bottom, next_segment_top)
+
+        available_height = max_bottom - original_rect.y0
+        available_height = max(available_height, original_height)
+
+        adjusted_font_size = font_size
+        if needed_height > available_height:
+            # Scale font down to fit, with a floor of 6pt
+            adjusted_font_size = max(font_size * available_height / needed_height, 6.0)
+            needed_height = available_height
+
+        expanded_rect = fitz.Rect(
+            original_rect.x0,
+            original_rect.y0,
+            original_rect.x1,
+            original_rect.y0 + needed_height,
+        )
+
+        return expanded_rect, adjusted_font_size
+
     async def _write_page_translations(
         self,
         page: fitz.Page,
@@ -282,60 +333,94 @@ class PDFProcessor(DocumentProcessor):
     ) -> None:
         """
         Write translations to a single PDF page.
-        
+
         For each segment:
         1. Redact the original text area with white fill
         2. Insert translated text at the same position
         """
+        # Pre-compute vertical ordering for next-segment-top lookup
+        sorted_segments = sorted(
+            page_segments,
+            key=lambda ps: ps[0].metadata.get("line_bbox", (0, 0, 0, 0))[1]
+        )
+        next_top_map: dict[str, float] = {}
+        for i, (seg, _) in enumerate(sorted_segments):
+            if i + 1 < len(sorted_segments):
+                next_bbox = sorted_segments[i + 1][0].metadata.get("line_bbox", (0, 0, 0, 0))
+                next_top_map[seg.id] = next_bbox[1]
+
         # First pass: add redaction annotations for all original text areas
         for segment, translation in page_segments:
             spans = segment.metadata.get("spans", [])
             if not spans:
                 continue
-            
+
             # Get the bounding box for the entire line
             line_bbox = segment.metadata.get("line_bbox")
             if line_bbox:
-                # Add redaction annotation (white rectangle over original text)
-                rect = fitz.Rect(line_bbox)
-                # Expand rect slightly to ensure complete coverage
-                rect = rect + (-1, -1, 1, 1)
+                num_lines = translation.count('\n') + 1
+                font_size = spans[0].get("size", 12)
+
+                if num_lines > 1:
+                    # Expand redaction area for multi-line output
+                    expanded_rect, _ = self._calculate_output_rect(
+                        line_bbox, num_lines, font_size,
+                        page.rect.height, next_top_map.get(segment.id)
+                    )
+                    rect = expanded_rect + (-1, -1, 1, 1)
+                else:
+                    rect = fitz.Rect(line_bbox) + (-1, -1, 1, 1)
+
                 page.add_redact_annot(rect, fill=(1, 1, 1))  # White fill
-        
+
         # Apply all redactions at once
         page.apply_redactions()
-        
+
         # Second pass: insert translated text
         for segment, translation in page_segments:
             spans = segment.metadata.get("spans", [])
             if not spans:
                 continue
-            
+
             # Get font info from first span
             first_span = spans[0]
             font_size = first_span.get("size", 12)
             font_color = self._int_to_rgb(first_span.get("color", 0))
-            
+
             # Get position from line bbox or span origin
             line_bbox = segment.metadata.get("line_bbox")
             if line_bbox:
-                # Position text at the start of the line
-                x = line_bbox[0]
-                # Adjust y position (PDF coordinates have origin at bottom-left)
-                # The bbox y values are from top, so we use the bottom of the bbox
-                y = line_bbox[3] - 2  # Small offset for baseline
-                
+                num_lines = translation.count('\n') + 1
+
                 # Calculate available width to prevent text overflow
                 page_width = page.rect.width
                 right_margin = 20  # Small margin from page edge
+                x = line_bbox[0]
                 available_width = page_width - x - right_margin
-                
-                # Use original line width as reference, but cap at available space
                 original_width = line_bbox[2] - line_bbox[0]
                 text_width = min(max(original_width, 100), available_width)
-                
-                # Insert translated text using text writer for better Unicode support
-                self._insert_unicode_text(page, x, y, translation, font_size, font_color, text_width)
+
+                if num_lines > 1:
+                    # Multi-line: use expanded rect with htmlbox rendering
+                    expanded_rect, adjusted_font_size = self._calculate_output_rect(
+                        line_bbox, num_lines, font_size,
+                        page.rect.height, next_top_map.get(segment.id)
+                    )
+                    # Ensure rect uses full available width
+                    output_rect = fitz.Rect(
+                        expanded_rect.x0, expanded_rect.y0,
+                        expanded_rect.x0 + text_width, expanded_rect.y1,
+                    )
+                    self._insert_unicode_text(
+                        page, x, 0, translation, adjusted_font_size,
+                        font_color, text_width, output_rect=output_rect,
+                    )
+                else:
+                    # Single line: original behavior
+                    y = line_bbox[3] - 2  # Small offset for baseline
+                    self._insert_unicode_text(
+                        page, x, y, translation, font_size, font_color, text_width,
+                    )
 
     def _insert_unicode_text(
         self,
@@ -345,42 +430,51 @@ class PDFProcessor(DocumentProcessor):
         text: str,
         font_size: float,
         color: tuple[float, float, float],
-        max_width: float
+        max_width: float,
+        output_rect: Optional[fitz.Rect] = None,
     ) -> None:
         """
-        Insert text with full Unicode support using TextWriter.
-        
-        PyMuPDF's built-in fonts have limited Unicode support.
-        Using TextWriter with a proper font allows Vietnamese and other
-        Unicode characters to be rendered correctly.
-        
+        Insert text with full Unicode support.
+
+        For single-line text, uses TextWriter for precise positioning.
+        For multi-line text (append/interleaved modes), uses insert_htmlbox
+        with a pre-calculated rect that accommodates all lines.
+
         Args:
             page: The PDF page to insert text into
-            x: X coordinate for text insertion
-            y: Y coordinate for text insertion
+            x: X coordinate for text insertion (used for single-line)
+            y: Y coordinate for text insertion (used for single-line)
             text: The text to insert
             font_size: Font size in points
             color: RGB color tuple (0-1 range)
-            max_width: Maximum width available for text (prevents overflow)
+            max_width: Maximum width available for text
+            output_rect: Pre-calculated rect for multi-line rendering
         """
+        css = (
+            f"* {{font-size: {font_size}pt; "
+            f"color: rgb({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}); "
+            f"font-family: sans-serif;}}"
+        )
+
+        if output_rect is not None:
+            # Multi-line path: use insert_htmlbox with expanded rect
+            try:
+                html_text = text.replace('\n', '<br/>')
+                page.insert_htmlbox(output_rect, html_text, css=css)
+                return
+            except Exception as e:
+                self.logger.warning(f"Failed to insert multi-line text via htmlbox: {e}")
+
+        # Single-line path: use TextWriter for precise positioning
         try:
-            # Create a text writer for the page
             tw = fitz.TextWriter(page.rect)
-            
-            # Use a font with good Unicode support
-            # fitz.Font() without arguments uses a built-in font with Unicode support
-            font = fitz.Font("helv")  # Start with Helvetica
-            
-            # Try to append text - if it fails due to missing glyphs,
-            # fall back to a different approach
+            font = fitz.Font("helv")
             try:
                 tw.append((x, y), text, font=font, fontsize=font_size)
                 tw.write_text(page, color=color)
             except Exception:
                 # Fallback: use insert_htmlbox which handles Unicode better
-                # Use calculated max_width to prevent text overflow
                 rect = fitz.Rect(x, y - font_size, x + max_width, y + font_size * 2)
-                css = f"* {{font-size: {font_size}pt; color: rgb({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}); font-family: sans-serif;}}"
                 page.insert_htmlbox(rect, text, css=css)
         except Exception as e:
             self.logger.warning(f"Failed to insert Unicode text: {e}")

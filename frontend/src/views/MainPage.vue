@@ -210,6 +210,23 @@
                         <span class="error-text">{{ file.error }}</span>
                       </div>
                     </div>
+
+                    <!-- Translation warnings (segments failed within completed files) -->
+                    <div
+                      v-if="getFilesWithWarnings(item).length > 0"
+                      class="warning-files-section"
+                    >
+                      <div class="warning-header">{{ t('job.translationWarnings', 'Translation Warnings') }}</div>
+                      <div
+                        v-for="file in getFilesWithWarnings(item)"
+                        :key="file.originalFilename"
+                        class="warning-file"
+                      >
+                        <WarningOutlined class="warning-icon" />
+                        <span class="filename">{{ file.originalFilename }}</span>
+                        <span class="warning-text">{{ file.translationWarning }}</span>
+                      </div>
+                    </div>
                   </div>
                 </a-list-item>
               </template>
@@ -238,6 +255,7 @@ import {
   FilePptOutlined,
   FilePdfOutlined,
   CloseCircleOutlined,
+  WarningOutlined,
   InfoCircleOutlined,
   GlobalOutlined,
   ThunderboltOutlined,
@@ -387,10 +405,19 @@ function handleJobComplete(job: TranslationJob) {
 
   // Show completion notification
   if (job.status === 'COMPLETED') {
-    errorHandler.showSuccess(
-      'Translation Complete',
-      `Job ${job.id} completed successfully. ${job.filesCompleted} files translated.`
-    )
+    const warnings = getFilesWithWarnings(job)
+    if (warnings.length > 0) {
+      const totalFailed = warnings.reduce((sum, f) => sum + (f.segmentsFailed ?? 0), 0)
+      errorHandler.showWarning(
+        'Translation Complete with Warnings',
+        `Job ${job.id} completed. ${job.filesCompleted} files translated, but ${totalFailed} segments could not be translated in ${warnings.length} file(s).`
+      )
+    } else {
+      errorHandler.showSuccess(
+        'Translation Complete',
+        `Job ${job.id} completed successfully. ${job.filesCompleted} files translated.`
+      )
+    }
   } else if (job.status === 'PARTIAL_SUCCESS') {
     errorHandler.showWarning(
       'Translation Partially Complete',
@@ -429,6 +456,13 @@ function getCompletedFiles(job: TranslationJob): Array<{ filename: string }> {
     return []
   }
   return job.completedFiles.map(cf => ({ filename: cf.outputFilename }))
+}
+
+function getFilesWithWarnings(job: TranslationJob) {
+  if (!job.completedFiles || !Array.isArray(job.completedFiles)) {
+    return []
+  }
+  return job.completedFiles.filter(f => f.segmentsFailed && f.segmentsFailed > 0)
 }
 
 function getStatusColor(status: string): string {
@@ -761,6 +795,38 @@ function getDocumentIconColor(documentType?: DocumentType): string {
 
 .error-icon {
   color: #ef4444;
+}
+
+.warning-files-section {
+  margin-top: 16px;
+  background: #fffbeb;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #fef3c7;
+}
+
+.warning-header {
+  font-weight: 600;
+  color: #d97706;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.warning-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #92400e;
+}
+
+.warning-icon {
+  color: #d97706;
+}
+
+.warning-text {
+  color: #92400e;
+  font-size: 12px;
 }
 
 /* Responsive */

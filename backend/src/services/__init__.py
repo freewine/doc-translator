@@ -1,7 +1,7 @@
 """Services module for business logic components."""
 
 from .auth_service import AuthService, create_password_hash
-from .translation_service import TranslationService
+from .translation_service import TranslationService, TranslationResult
 from .excel_processor import ExcelProcessor, CellData, WorksheetProgress
 from .concurrent_executor import ConcurrentExecutor, ProcessingResult
 from .job_manager import JobManager
@@ -33,6 +33,7 @@ __all__ = [
     "AuthService",
     "create_password_hash",
     "TranslationService",
+    "TranslationResult",
     "ExcelProcessor",
     "CellData",
     "WorksheetProgress",

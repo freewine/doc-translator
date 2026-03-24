@@ -235,6 +235,8 @@ class CompletedFile:
     segments_translated: int
     document_type: Optional[DocumentType]
     cells_translated: int
+    segments_failed: int = 0
+    translation_warning: Optional[str] = None
 
 
 @strawberry.type

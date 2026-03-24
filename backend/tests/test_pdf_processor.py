@@ -403,6 +403,215 @@ class TestPDFProcessorWriteTranslated:
                 output_path.unlink()
 
 
+class TestPDFProcessorOutputModes:
+    """Tests for PDF output modes (Replace, Append, Interleaved)."""
+
+    @pytest.mark.asyncio
+    async def test_write_translated_replace_mode(self):
+        """Test Replace mode: only translated text should appear."""
+        processor = PDFProcessor()
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            doc = fitz.open()
+            page = doc.new_page()
+            page.insert_text((100, 100), "Hello", fontsize=12)
+            doc.save(f.name)
+            doc.close()
+            input_path = Path(f.name)
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            output_path = Path(f.name)
+
+        try:
+            segments = await processor.extract_text(input_path)
+            translations = ["Xin chào" for _ in segments]
+
+            success = await processor.write_translated(
+                input_path, segments, translations, output_path,
+                auto_append=False, interleaved_mode=False
+            )
+
+            assert success is True
+            doc = fitz.open(str(output_path))
+            text = doc[0].get_text("text")
+            doc.close()
+            assert "Xin chào" in text
+        finally:
+            input_path.unlink()
+            if output_path.exists():
+                output_path.unlink()
+
+    @pytest.mark.asyncio
+    async def test_write_translated_append_mode(self):
+        """Test Append mode: both original and translated text should appear."""
+        processor = PDFProcessor()
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            doc = fitz.open()
+            page = doc.new_page()
+            page.insert_text((100, 100), "Hello", fontsize=12)
+            doc.save(f.name)
+            doc.close()
+            input_path = Path(f.name)
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            output_path = Path(f.name)
+
+        try:
+            segments = await processor.extract_text(input_path)
+            translations = ["Xin chào" for _ in segments]
+
+            success = await processor.write_translated(
+                input_path, segments, translations, output_path,
+                auto_append=True, interleaved_mode=False
+            )
+
+            assert success is True
+            doc = fitz.open(str(output_path))
+            text = doc[0].get_text("text")
+            doc.close()
+            # Both original and translated should be present
+            assert "Hello" in text
+            assert "Xin chào" in text
+        finally:
+            input_path.unlink()
+            if output_path.exists():
+                output_path.unlink()
+
+    @pytest.mark.asyncio
+    async def test_write_translated_interleaved_mode(self):
+        """Test Interleaved mode: original and translated lines interleaved."""
+        processor = PDFProcessor()
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            doc = fitz.open()
+            page = doc.new_page()
+            page.insert_text((100, 100), "Hello", fontsize=12)
+            doc.save(f.name)
+            doc.close()
+            input_path = Path(f.name)
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            output_path = Path(f.name)
+
+        try:
+            segments = await processor.extract_text(input_path)
+            translations = ["Xin chào" for _ in segments]
+
+            success = await processor.write_translated(
+                input_path, segments, translations, output_path,
+                auto_append=False, interleaved_mode=True
+            )
+
+            assert success is True
+            doc = fitz.open(str(output_path))
+            text = doc[0].get_text("text")
+            doc.close()
+            # Both original and translated should be present
+            assert "Hello" in text
+            assert "Xin chào" in text
+        finally:
+            input_path.unlink()
+            if output_path.exists():
+                output_path.unlink()
+
+    @pytest.mark.asyncio
+    async def test_write_translated_append_multiline_pdf(self):
+        """Test Append mode with multiple text lines on a page."""
+        processor = PDFProcessor()
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            doc = fitz.open()
+            page = doc.new_page()
+            page.insert_text((100, 100), "Line one", fontsize=12)
+            page.insert_text((100, 200), "Line two", fontsize=12)
+            doc.save(f.name)
+            doc.close()
+            input_path = Path(f.name)
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            output_path = Path(f.name)
+
+        try:
+            segments = await processor.extract_text(input_path)
+            translations = []
+            for seg in segments:
+                if "one" in seg.text.lower():
+                    translations.append("Dòng một")
+                elif "two" in seg.text.lower():
+                    translations.append("Dòng hai")
+                else:
+                    translations.append(seg.text)
+
+            success = await processor.write_translated(
+                input_path, segments, translations, output_path,
+                auto_append=True, interleaved_mode=False
+            )
+
+            assert success is True
+            doc = fitz.open(str(output_path))
+            text = doc[0].get_text("text")
+            doc.close()
+            # All original and translated text should be present
+            assert "Line one" in text
+            assert "Dòng một" in text
+            assert "Line two" in text
+            assert "Dòng hai" in text
+        finally:
+            input_path.unlink()
+            if output_path.exists():
+                output_path.unlink()
+
+
+class TestPDFProcessorCalculateOutputRect:
+    """Tests for _calculate_output_rect helper."""
+
+    def test_single_line_returns_original(self):
+        """Single line should return original rect and font size unchanged."""
+        processor = PDFProcessor()
+        line_bbox = (100, 100, 300, 114)
+        rect, font_size = processor._calculate_output_rect(
+            line_bbox, num_lines=1, font_size=12, page_height=842,
+            next_segment_top=None,
+        )
+        assert rect == fitz.Rect(line_bbox)
+        assert font_size == 12
+
+    def test_two_lines_with_ample_space(self):
+        """Two lines with plenty of space should expand rect, keep font size."""
+        processor = PDFProcessor()
+        line_bbox = (100, 100, 300, 114)
+        rect, font_size = processor._calculate_output_rect(
+            line_bbox, num_lines=2, font_size=12, page_height=842,
+            next_segment_top=None,
+        )
+        assert rect.y1 > 114  # Expanded downward
+        assert font_size == 12  # Unchanged
+
+    def test_two_lines_with_tight_space(self):
+        """Two lines with tight space should reduce font size."""
+        processor = PDFProcessor()
+        line_bbox = (100, 100, 300, 114)
+        # Next segment starts very close (only 5pt gap)
+        rect, font_size = processor._calculate_output_rect(
+            line_bbox, num_lines=2, font_size=12, page_height=842,
+            next_segment_top=105,
+        )
+        assert font_size < 12  # Should be reduced
+        assert font_size >= 6  # Should not go below floor
+
+    def test_font_size_floor(self):
+        """Font size should not drop below 6pt."""
+        processor = PDFProcessor()
+        line_bbox = (100, 100, 300, 114)
+        # Extremely tight space
+        rect, font_size = processor._calculate_output_rect(
+            line_bbox, num_lines=4, font_size=12, page_height=842,
+            next_segment_top=102,
+        )
+        assert font_size >= 6.0
+
+
 class TestPDFProcessorColorConversion:
     """Tests for PDFProcessor color conversion utilities."""
     

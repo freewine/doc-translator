@@ -93,7 +93,8 @@ export default {
     history: '历史记录',
     noJobs: '暂无已完成的任务',
     files: '个文件',
-    failedFiles: '失败的文件'
+    failedFiles: '失败的文件',
+    translationWarnings: '翻译警告'
   },
 
   // Progress Tracker
@@ -116,6 +117,7 @@ export default {
       partial: '部分成功'
     },
     errors: '错误',
+    warnings: '警告',
     noErrors: '无错误',
     jobTitle: '翻译任务',
     loading: '正在加载任务状态...',

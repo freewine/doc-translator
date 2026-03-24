@@ -69,7 +69,7 @@ class TestTranslationServiceIntegration:
 
         # Test translation
         result = service.translate_text("你好", zh_vi_pair)
-        assert result == 'Xin chào'
+        assert result.text == 'Xin chào'
 
     def test_translation_with_different_language_pair(
         self,
@@ -95,7 +95,7 @@ class TestTranslationServiceIntegration:
 
         # Test translation with new pair
         result = service.translate_text("Hello", en_es_pair)
-        assert result == 'Hola'
+        assert result.text == 'Hola'
 
     @pytest.mark.asyncio
     async def test_async_translation_with_language_pair(
@@ -122,7 +122,7 @@ class TestTranslationServiceIntegration:
 
         # Test async translation
         result = await service.translate_text_async("你好世界", zh_vi_pair)
-        assert result == 'Xin chào thế giới'
+        assert result.text == 'Xin chào thế giới'
 
     def test_language_pair_structure(
         self,

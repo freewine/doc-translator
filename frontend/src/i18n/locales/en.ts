@@ -93,7 +93,8 @@ export default {
     history: 'Recent History',
     noJobs: 'No completed jobs yet',
     files: 'files',
-    failedFiles: 'Failed Files'
+    failedFiles: 'Failed Files',
+    translationWarnings: 'Translation Warnings'
   },
 
   // Progress Tracker
@@ -116,6 +117,7 @@ export default {
       partial: 'Partial Success'
     },
     errors: 'Errors',
+    warnings: 'Warnings',
     noErrors: 'No errors',
     jobTitle: 'Translation Job',
     loading: 'Loading job status...',

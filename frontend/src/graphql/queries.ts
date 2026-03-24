@@ -29,11 +29,14 @@ export const JOB_QUERY = gql`
       filesFailed {
         filename
         error
+        errorType
       }
       completedFiles {
         originalFilename
         outputFilename
         cellsTranslated
+        segmentsFailed
+        translationWarning
       }
       autoAppend
       createdAt
@@ -108,6 +111,8 @@ export const JOB_HISTORY_QUERY = gql`
           outputFilename
           segmentsTranslated
           documentType
+          segmentsFailed
+          translationWarning
         }
         languagePair {
           id

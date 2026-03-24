@@ -17,7 +17,7 @@ from backend.src.services.translation_orchestrator import (
 )
 from backend.src.models.job import TranslationJob, JobStatus, LanguagePair, DocumentType
 from backend.src.services.excel_processor import ExcelProcessor, CellData
-from backend.src.services.translation_service import TranslationService
+from backend.src.services.translation_service import TranslationService, TranslationResult
 from backend.src.services.concurrent_executor import ConcurrentExecutor
 from backend.src.services.document_processor import (
     DocumentProcessorFactory,
@@ -147,16 +147,18 @@ async def test_process_file_success(orchestrator, mock_document_processor, mock_
     mock_document_processor.write_translated.return_value = True
     mock_document_processor.generate_output_filename.return_value = "test_vi.xlsx"
     
-    mock_translation_service.batch_translate_async.return_value = ["Xin chào"]
-    
+    mock_translation_service.batch_translate_async.return_value = [TranslationResult(text="Xin chào")]
+
     # Execute
     result = await orchestrator.process_file(file_path, "test.xlsx", language_pair, job)
-    
+
     # Verify
     assert result.success is True
     assert result.filename == "test.xlsx"
     assert result.segments_translated == 1
     assert result.segments_total == 1
+    assert result.segments_failed == 0
+    assert result.translation_warning is None
     assert result.output_path is not None
     assert result.error is None
     assert result.document_type == DocumentType.EXCEL
@@ -202,9 +204,9 @@ async def test_process_file_save_failure(orchestrator, mock_document_processor, 
     mock_document_processor.extract_text.return_value = segments
     mock_document_processor.write_translated.return_value = False  # Save fails
     mock_document_processor.generate_output_filename.return_value = "test_vi.xlsx"
-    
-    mock_translation_service.batch_translate_async.return_value = ["Xin chào"]
-    
+
+    mock_translation_service.batch_translate_async.return_value = [TranslationResult(text="Xin chào")]
+
     # Execute
     result = await orchestrator.process_file(file_path, "test.xlsx", language_pair, job)
     
@@ -239,7 +241,7 @@ async def test_process_file_with_progress_callback(orchestrator, mock_document_p
     mock_document_processor.write_translated.return_value = True
     mock_document_processor.generate_output_filename.return_value = "test_vi.xlsx"
     
-    mock_translation_service.batch_translate_async.return_value = ["Translated"] * len(segments)
+    mock_translation_service.batch_translate_async.return_value = [TranslationResult(text="Translated")] * len(segments)
     
     # Track progress callbacks
     progress_calls = []

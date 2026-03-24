@@ -93,7 +93,8 @@ export default {
     history: 'Lịch sử',
     noJobs: 'Chưa có công việc hoàn thành',
     files: 'tệp',
-    failedFiles: 'Tệp thất bại'
+    failedFiles: 'Tệp thất bại',
+    translationWarnings: 'Cảnh báo dịch thuật'
   },
 
   // Progress Tracker
@@ -116,6 +117,7 @@ export default {
       partial: 'Thành công một phần'
     },
     errors: 'Lỗi',
+    warnings: 'Cảnh báo',
     noErrors: 'Không có lỗi',
     jobTitle: 'Công việc dịch',
     loading: 'Đang tải trạng thái công việc...',

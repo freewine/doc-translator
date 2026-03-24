@@ -10,11 +10,20 @@ import asyncio
 import json
 import time
 import logging
+from dataclasses import dataclass
 from typing import List, Optional, Tuple, TYPE_CHECKING
 import boto3
 from botocore.exceptions import ClientError
 
 from ..models.job import LanguagePair
+
+
+@dataclass
+class TranslationResult:
+    """Result of a single text translation, carrying error metadata alongside the text."""
+    text: str
+    failed: bool = False
+    error_code: Optional[str] = None  # e.g. "ThrottlingException"
 
 if TYPE_CHECKING:
     from ..models.thesaurus import TermPair
@@ -301,19 +310,12 @@ Output: [{{"index": 0, "translation": "Văn bản tiếng Việt"}}]"""
         source_text: str,
         language_pair: LanguagePair,
         term_pairs: Optional[List["TermPair"]] = None
-    ) -> str:
+    ) -> TranslationResult:
         """
         Translate text from source to target language using Amazon Bedrock (async version).
 
-        Uses model-based language detection via system prompt instead of Unicode range detection.
-        The model's system prompt handles:
-        - Detecting if text contains source language
-        - Preserving English text unchanged
-        - Returning original text if no translation needed
-        - Using provided term pairs for consistent terminology
-
-        Implements exponential backoff retry logic (3 attempts with 1s, 2s, 4s delays).
-        Handles ThrottlingException, ValidationException, and ServiceUnavailableException.
+        Returns a TranslationResult containing the translated text and error metadata.
+        On failure after retries, returns the original text with failed=True and the error code.
 
         Args:
             source_text: Text in source language to translate
@@ -321,10 +323,10 @@ Output: [{{"index": 0, "translation": "Văn bản tiếng Việt"}}]"""
             term_pairs: Optional list of TermPair objects for terminology injection
 
         Returns:
-            Translated text in target language, or original text if translation fails after retries
+            TranslationResult with translated text, or original text with error info on failure
         """
         if not source_text or not source_text.strip():
-            return source_text
+            return TranslationResult(text=source_text)
 
         system_prompt = self._build_system_prompt(language_pair, is_batch=False, term_pairs=term_pairs)
 
@@ -351,38 +353,35 @@ Output: [{{"index": 0, "translation": "Văn bản tiếng Việt"}}]"""
                 f"Translation successful ({language_pair.source_language} → "
                 f"{language_pair.target_language}, latency: {latency:.3f}s)"
             )
-            return translated_text
+            return TranslationResult(text=translated_text)
 
         except ClientError as e:
             error_code = e.response.get('Error', {}).get('Code', 'Unknown')
-            if error_code == 'ValidationException':
-                return source_text
-
-            self.logger.error(f"Translation failed, returning original text")
-            return source_text
+            self.logger.error(f"Translation failed ({error_code}), returning original text")
+            return TranslationResult(text=source_text, failed=True, error_code=error_code)
 
         except Exception as e:
             self.logger.error(f"Translation failed: {str(e)}, returning original text")
-            return source_text
+            return TranslationResult(text=source_text, failed=True, error_code="UnexpectedError")
 
     def translate_text(
         self,
         source_text: str,
         language_pair: LanguagePair,
         term_pairs: Optional[List["TermPair"]] = None
-    ) -> str:
+    ) -> TranslationResult:
         """
         Translate text from source to target language using Amazon Bedrock (synchronous version).
-        
+
         This is a synchronous wrapper around translate_text_async for backward compatibility.
-        
+
         Args:
             source_text: Text in source language to translate
             language_pair: LanguagePair specifying source and target languages
             term_pairs: Optional list of TermPair objects for terminology injection
-            
+
         Returns:
-            Translated text in target language, or original text if translation fails
+            TranslationResult with translated text, or original text with error info on failure
         """
         # Create event loop if needed and run async version
         try:
@@ -393,7 +392,7 @@ Output: [{{"index": 0, "translation": "Văn bản tiếng Việt"}}]"""
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         return loop.run_until_complete(self.translate_text_async(source_text, language_pair, term_pairs))
 
     async def batch_translate_async(
@@ -401,51 +400,50 @@ Output: [{{"index": 0, "translation": "Văn bản tiếng Việt"}}]"""
         texts: List[str],
         language_pair: LanguagePair,
         term_pairs: Optional[List["TermPair"]] = None
-    ) -> List[str]:
+    ) -> List[TranslationResult]:
         """
         Translate multiple texts in batches using JSON format for reliable ordering (async version).
-        
-        Uses indexed JSON array format for batch translation requests and responses.
-        Maps translations back to original text positions with fallback to individual translation
-        if JSON parsing fails.
-        
+
+        Returns TranslationResult objects that carry error metadata alongside translations.
+        On failure, falls back to individual translation. Failed segments have failed=True.
+
         Args:
             texts: List of texts in source language to translate
             language_pair: LanguagePair specifying source and target languages
             term_pairs: Optional list of TermPair objects for terminology injection
-            
+
         Returns:
-            List of translations in the same order as input
+            List of TranslationResult in the same order as input
         """
         if not texts:
             return []
-        
-        translations = []
-        
+
+        results: List[TranslationResult] = []
+
         # Process texts in batches
         for i in range(0, len(texts), self.batch_size):
             batch = texts[i:i + self.batch_size]
-            
+
             # Filter out empty texts - let the model handle language detection
             batch_with_indices = []
             for idx, text in enumerate(batch):
                 if text and text.strip():
                     batch_with_indices.append((idx, text))
-            
+
             # If no non-empty texts in this batch, just return originals
             if not batch_with_indices:
-                translations.extend(batch)
+                results.extend(TranslationResult(text=t) for t in batch)
                 continue
-            
+
             # Prepare batch translation request using JSON format
             batch_texts = [text for _, text in batch_with_indices]
-            
+
             # Format request as JSON array with indices
             json_request = self._format_batch_request(batch_texts)
-            
+
             # Build system prompt with batch mode enabled and term pairs
             system_prompt = self._build_system_prompt(language_pair, is_batch=True, term_pairs=term_pairs)
-            
+
             try:
                 messages = [
                     {
@@ -464,68 +462,63 @@ Output: [{{"index": 0, "translation": "Văn bản tiếng Việt"}}]"""
                 batch_result, _ = await self._call_bedrock_with_retry(
                     messages, system_config, inference_config
                 )
-                
+
                 # Parse JSON response and extract translations
                 parsed_translations = self._parse_batch_response(batch_result, len(batch_texts))
-                
+
                 if parsed_translations is None:
                     # JSON parsing failed - fall back to single-cell translation
                     self.logger.warning(
                         f"JSON response parsing failed, falling back to single-cell translation mode"
                     )
-                    batch_translations = list(batch)
+                    batch_results: List[TranslationResult] = [TranslationResult(text=t) for t in batch]
                     for original_idx, text in batch_with_indices:
-                        translated = await self.translate_text_async(text, language_pair, term_pairs)
-                        batch_translations[original_idx] = translated
-                    translations.extend(batch_translations)
+                        batch_results[original_idx] = await self.translate_text_async(text, language_pair, term_pairs)
+                    results.extend(batch_results)
                 else:
                     # Map translations back to original positions
-                    batch_translations = list(batch)  # Start with originals
+                    batch_results = [TranslationResult(text=t) for t in batch]
                     for (original_idx, _), translation in zip(batch_with_indices, parsed_translations):
-                        batch_translations[original_idx] = translation
-                    
-                    translations.extend(batch_translations)
-                    
+                        batch_results[original_idx] = TranslationResult(text=translation)
+
+                    results.extend(batch_results)
+
                     self.logger.debug(
                         f"Batch translated {len(batch_texts)} texts successfully using JSON format "
                         f"({language_pair.source_language} → {language_pair.target_language})"
                     )
-                
+
             except Exception as e:
                 self.logger.error(
                     f"Batch translation failed: {str(e)}, falling back to individual translation"
                 )
                 # Fallback: translate individually
-                batch_translations = list(batch)
+                batch_results = [TranslationResult(text=t) for t in batch]
                 for original_idx, text in batch_with_indices:
-                    try:
-                        translated = await self.translate_text_async(text, language_pair, term_pairs)
-                        batch_translations[original_idx] = translated
-                    except Exception as individual_error:
-                        self.logger.error(f"Individual translation also failed: {individual_error}")
-                        # Keep original text
-                translations.extend(batch_translations)
-        
-        return translations
+                    # translate_text_async returns TranslationResult with error info
+                    batch_results[original_idx] = await self.translate_text_async(text, language_pair, term_pairs)
+                results.extend(batch_results)
+
+        return results
 
     def batch_translate(
         self,
         texts: List[str],
         language_pair: LanguagePair,
         term_pairs: Optional[List["TermPair"]] = None
-    ) -> List[str]:
+    ) -> List[TranslationResult]:
         """
         Translate multiple texts in batches for efficiency (synchronous version).
-        
+
         This is a synchronous wrapper around batch_translate_async for backward compatibility.
-        
+
         Args:
             texts: List of texts in source language to translate
             language_pair: LanguagePair specifying source and target languages
             term_pairs: Optional list of TermPair objects for terminology injection
-            
+
         Returns:
-            List of translations in the same order as input
+            List of TranslationResult in the same order as input
         """
         # Create event loop if needed and run async version
         try:
@@ -536,5 +529,5 @@ Output: [{{"index": 0, "translation": "Văn bản tiếng Việt"}}]"""
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        
+
         return loop.run_until_complete(self.batch_translate_async(texts, language_pair, term_pairs))

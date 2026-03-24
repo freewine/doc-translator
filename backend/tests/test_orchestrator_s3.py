@@ -24,6 +24,7 @@ sys.path.insert(0, str(backend_dir))
 
 from src.models.job import TranslationJob, JobStatus, LanguagePair, DocumentType
 from src.services.translation_orchestrator import TranslationOrchestrator, FileProcessingResult
+from src.services.translation_service import TranslationResult
 
 
 # Strategies for generating test data
@@ -190,7 +191,7 @@ class TestOrchestratorS3Uploads:
         mock_translation_service = Mock()
         mock_translation_service.batch_size = 10
         mock_translation_service.batch_translate_async = AsyncMock(
-            side_effect=lambda texts, lp, tp: ["translated"] * len(texts)
+            side_effect=lambda texts, lp, tp: [TranslationResult(text="translated")] * len(texts)
         )
         
         # Create mock concurrent executor
@@ -347,7 +348,7 @@ class TestOrchestratorS3Uploads:
         mock_translation_service = Mock()
         mock_translation_service.batch_size = 10
         mock_translation_service.batch_translate_async = AsyncMock(
-            side_effect=lambda texts, lp, tp: ["translated"] * len(texts)
+            side_effect=lambda texts, lp, tp: [TranslationResult(text="translated")] * len(texts)
         )
         
         # Create mock concurrent executor
@@ -468,7 +469,7 @@ class TestOrchestratorS3Uploads:
         mock_translation_service = Mock()
         mock_translation_service.batch_size = 10
         mock_translation_service.batch_translate_async = AsyncMock(
-            side_effect=lambda texts, lp, tp: ["translated"] * len(texts)
+            side_effect=lambda texts, lp, tp: [TranslationResult(text="translated")] * len(texts)
         )
         
         # Create mock concurrent executor
@@ -579,7 +580,7 @@ class TestOrchestratorS3Uploads:
         mock_translation_service = Mock()
         mock_translation_service.batch_size = 10
         mock_translation_service.batch_translate_async = AsyncMock(
-            side_effect=lambda texts, lp, tp: ["translated"] * len(texts)
+            side_effect=lambda texts, lp, tp: [TranslationResult(text="translated")] * len(texts)
         )
         
         # Create mock concurrent executor

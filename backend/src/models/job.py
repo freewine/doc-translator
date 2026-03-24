@@ -96,6 +96,8 @@ class CompletedFile:
     document_type: Optional[DocumentType] = None
     # Legacy field for backward compatibility
     cells_translated: int = 0
+    segments_failed: int = 0
+    translation_warning: Optional[str] = None
 
     def __post_init__(self):
         """Sync legacy cell field with segment field for backward compatibility."""
@@ -261,38 +263,44 @@ class TranslationJob:
         output_filename: Optional[str] = None,
         segments_translated: int = 0,
         document_type: Optional[DocumentType] = None,
-        cells_translated: int = 0  # Legacy parameter for backward compatibility
+        cells_translated: int = 0,  # Legacy parameter for backward compatibility
+        segments_failed: int = 0,
+        translation_warning: Optional[str] = None
     ) -> None:
         """
         Mark a file as successfully completed.
-        
+
         Args:
             filename: Name of the original file
             output_filename: Name of the output file (with language suffix)
             segments_translated: Number of segments translated
             document_type: Type of document that was processed
             cells_translated: Legacy parameter (use segments_translated instead)
+            segments_failed: Number of segments that failed translation (fell back to original)
+            translation_warning: Warning message about translation failures
         """
         # Support legacy cells_translated parameter
         actual_segments_translated = segments_translated if segments_translated > 0 else cells_translated
-        
+
         # Try to get document type from processing list if not provided
         if document_type is None:
             for fp in self.files_processing:
                 if fp.filename == filename and fp.document_type:
                     document_type = fp.document_type
                     break
-        
+
         # Remove from processing list
         self.files_processing = [fp for fp in self.files_processing if fp.filename != filename]
-        
+
         # Add to completed files list
         if output_filename:
             completed_file = CompletedFile(
                 original_filename=filename,
                 output_filename=output_filename,
                 segments_translated=actual_segments_translated,
-                document_type=document_type
+                document_type=document_type,
+                segments_failed=segments_failed,
+                translation_warning=translation_warning
             )
             self.completed_files.append(completed_file)
         

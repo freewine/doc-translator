@@ -56,6 +56,8 @@ class FileProcessingResult:
     error_type: Optional[str] = None
     segments_translated: int = 0
     segments_total: int = 0
+    segments_failed: int = 0
+    translation_warning: Optional[str] = None
     document_type: Optional[DocumentType] = None
     # S3 storage key for the output file (if uploaded to S3)
     s3_key: Optional[str] = None
@@ -274,12 +276,15 @@ class TranslationOrchestrator:
                             file_result.filename,
                             output_filename=output_filename,
                             segments_translated=file_result.segments_translated,
-                            document_type=file_result.document_type
+                            document_type=file_result.document_type,
+                            segments_failed=file_result.segments_failed,
+                            translation_warning=file_result.translation_warning
                         )
                         await self._persist_job(job)
                         self.logger.info(
                             f"File completed: {file_result.filename} -> {output_filename} "
-                            f"({file_result.segments_translated}/{file_result.segments_total} segments)"
+                            f"({file_result.segments_translated}/{file_result.segments_total} segments"
+                            f", {file_result.segments_failed} failed)"
                         )
                     else:
                         job.mark_file_failed(
@@ -493,23 +498,39 @@ class TranslationOrchestrator:
                 
                 self.logger.debug(f"Batch {i // batch_size + 1} completed: {segments_translated}/{total_segments} segments")
             
+            # Count failed segments and build warning
+            segments_failed = sum(1 for r in combined_translations if r.failed)
+            translation_warning: Optional[str] = None
+            if segments_failed > 0:
+                error_codes = set(r.error_code for r in combined_translations if r.failed and r.error_code)
+                translation_warning = (
+                    f"{segments_failed}/{total_segments} segments untranslated due to: "
+                    f"{', '.join(sorted(error_codes))}"
+                )
+                self.logger.warning(
+                    f"File {original_filename}: {translation_warning}"
+                )
+
+            # Extract plain text for write_translated (preserving List[str] interface)
+            translations = [r.text for r in combined_translations]
+
             # Generate output path
             output_filename = processor.generate_output_filename(
                 original_path, language_pair.target_language_code
             )
             output_path = self.output_dir / output_filename
-            
+
             # Write translated document
             self.logger.info(f"Writing translated document to {output_path}...")
             write_success = await processor.write_translated(
                 file_path=file_path,
                 segments=segments,
-                translations=combined_translations,
+                translations=translations,
                 output_path=output_path,
                 auto_append=job.auto_append,
                 interleaved_mode=job.interleaved_mode
             )
-            
+
             if not write_success:
                 raise RuntimeError(f"Failed to write translated document: {original_filename}")
 
@@ -547,7 +568,7 @@ class TranslationOrchestrator:
 
             self.logger.info(
                 f"File processed successfully: {original_filename} "
-                f"({total_segments} segments translated)"
+                f"({total_segments} segments translated, {segments_failed} failed)"
             )
 
             return FileProcessingResult(
@@ -556,6 +577,8 @@ class TranslationOrchestrator:
                 output_path=output_path,
                 segments_translated=total_segments,
                 segments_total=total_segments,
+                segments_failed=segments_failed,
+                translation_warning=translation_warning,
                 document_type=document_type,
                 s3_key=s3_key
             )
