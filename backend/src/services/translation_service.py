@@ -8,6 +8,7 @@ Supports term pair injection for consistent terminology translation.
 
 import asyncio
 import json
+import re
 import time
 import logging
 from dataclasses import dataclass
@@ -181,6 +182,44 @@ Output: [{{"index": 0, "translation": "Văn bản tiếng Việt"}}, {{"index": 
         
         return text
 
+    def _repair_json(self, text: str) -> Optional[str]:
+        """
+        Attempt to repair common JSON malformations from LLM responses.
+
+        Returns repaired JSON string, or None if repair is not possible.
+        """
+        repaired = text
+
+        # Remove trailing commas before ] or }
+        repaired = re.sub(r',\s*([\]}])', r'\1', repaired)
+
+        # Try parsing after trailing comma fix
+        try:
+            json.loads(repaired)
+            return repaired
+        except json.JSONDecodeError:
+            pass
+
+        # Handle truncated response: try to close at the last complete object
+        # Find the last complete object (ending with })
+        last_brace = repaired.rfind('}')
+        if last_brace != -1:
+            truncated = repaired[:last_brace + 1]
+            # Remove any trailing comma after the last object
+            truncated = truncated.rstrip().rstrip(',')
+            # Close the array if needed
+            if not truncated.rstrip().endswith(']'):
+                truncated += ']'
+            # Remove trailing commas again in case truncation introduced them
+            truncated = re.sub(r',\s*([\]}])', r'\1', truncated)
+            try:
+                json.loads(truncated)
+                return truncated
+            except json.JSONDecodeError:
+                pass
+
+        return None
+
     async def _call_bedrock_with_retry(
         self,
         messages: List[dict],
@@ -261,49 +300,58 @@ Output: [{{"index": 0, "translation": "Văn bản tiếng Việt"}}, {{"index": 
         Returns:
             List of translations in order, or None if parsing fails or count mismatch
         """
+        # Extract JSON from potential markdown wrapper
+        json_str = self._extract_json_from_response(response)
+
+        # Try parsing, with repair fallback on failure
         try:
-            # Extract JSON from potential markdown wrapper
-            json_str = self._extract_json_from_response(response)
-            
-            # Parse the JSON response
             parsed = json.loads(json_str)
-            
-            # Validate it's a list
-            if not isinstance(parsed, list):
-                self.logger.warning(f"Batch response is not a list: {type(parsed)}")
-                return None
-            
-            # Validate count matches
-            if len(parsed) != expected_count:
-                self.logger.warning(
-                    f"Batch response count mismatch: expected {expected_count}, got {len(parsed)}"
-                )
-                return None
-            
-            # Extract translations ordered by index using dict comprehension
-            translation_map = {}
-            for item in parsed:
-                if not isinstance(item, dict) or "index" not in item or "translation" not in item:
-                    self.logger.warning(f"Invalid batch response item: {item}")
-                    return None
-                translation_map[item["index"]] = item["translation"]
-            
-            # Build ordered list - check all indices exist
-            if set(translation_map.keys()) != set(range(expected_count)):
-                self.logger.warning(f"Missing or invalid indices in response")
-                return None
-            
-            translations = [translation_map[idx] for idx in range(expected_count)]
-            
-            self.logger.debug(f"Successfully parsed batch response with {len(translations)} translations")
-            return translations
-            
         except json.JSONDecodeError as e:
             self.logger.warning(f"Failed to parse batch response as JSON: {e}")
+            repaired = self._repair_json(json_str)
+            if repaired is None:
+                self.logger.warning("JSON repair failed, giving up on batch response")
+                return None
+            self.logger.info("JSON repair succeeded, using repaired response")
+            try:
+                parsed = json.loads(repaired)
+            except json.JSONDecodeError:
+                self.logger.warning("Repaired JSON still invalid, giving up on batch response")
+                return None
+
+        return self._validate_batch_translations(parsed, expected_count)
+
+    def _validate_batch_translations(self, parsed: object, expected_count: int) -> Optional[List[str]]:
+        """Validate parsed JSON and extract ordered translations."""
+        # Validate it's a list
+        if not isinstance(parsed, list):
+            self.logger.warning(f"Batch response is not a list: {type(parsed)}")
             return None
-        except Exception as e:
-            self.logger.warning(f"Unexpected error parsing batch response: {e}")
+
+        # Validate count matches
+        if len(parsed) != expected_count:
+            self.logger.warning(
+                f"Batch response count mismatch: expected {expected_count}, got {len(parsed)}"
+            )
             return None
+
+        # Extract translations ordered by index
+        translation_map = {}
+        for item in parsed:
+            if not isinstance(item, dict) or "index" not in item or "translation" not in item:
+                self.logger.warning(f"Invalid batch response item: {item}")
+                return None
+            translation_map[item["index"]] = item["translation"]
+
+        # Build ordered list - check all indices exist
+        if set(translation_map.keys()) != set(range(expected_count)):
+            self.logger.warning(f"Missing or invalid indices in response")
+            return None
+
+        translations = [translation_map[idx] for idx in range(expected_count)]
+
+        self.logger.debug(f"Successfully parsed batch response with {len(translations)} translations")
+        return translations
 
     async def translate_text_async(
         self,

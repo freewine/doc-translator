@@ -9,7 +9,7 @@
       <a-row :gutter="[24, 24]">
         <!-- Language Pair and Catalog Selection -->
         <a-col :xs="24" :sm="24" :md="12" :lg="8" :xl="6">
-          <a-card :bordered="false" class="section-card glass-card">
+          <a-card :bordered="false" class="section-card glass-card sticky-card">
             <template #title>
               <div class="card-header">
                 <GlobalOutlined class="header-icon" />
@@ -18,12 +18,15 @@
             </template>
             
             <a-form layout="vertical">
-              <a-form-item :label="t('languagePair.title')">
+              <a-form-item style="margin-bottom: 24px;">
+                <template #label>
+                  <span class="form-section-title">{{ t('languagePair.title') }}</span>
+                </template>
                 <a-select
                   v-model:value="selectedLanguagePairId"
                   :placeholder="t('languagePair.select')"
                   :loading="configStore.isLoading"
-                  size="large"
+                  size="middle"
                   @change="handleLanguagePairChange"
                   style="width: 100%"
                 >
@@ -37,35 +40,17 @@
                 </a-select>
               </a-form-item>
 
-              <a-form-item :label="t('thesaurus.catalog', 'Catalog')">
-                <div class="catalog-select-wrapper">
-                  <a-select
-                    v-model:value="selectedCatalogId"
-                    :placeholder="t('thesaurus.selectCatalog', 'Select catalog')"
-                    :loading="thesaurusStore.isLoading"
-                    :disabled="!selectedLanguagePairId"
-                    size="large"
-                    @change="handleCatalogChange"
-                    style="width: 100%"
-                  >
-                    <a-select-option
-                      v-for="catalog in thesaurusStore.catalogs"
-                      :key="catalog.id"
-                      :value="catalog.id"
-                    >
-                      {{ catalog.name }} ({{ catalog.termCount }})
-                    </a-select-option>
-                  </a-select>
-                  <a-button
-                    type="text"
-                    :disabled="!selectedLanguagePairId || !canEdit"
-                    @click="showCatalogManager = true"
-                    v-if="canEdit"
-                  >
-                    <SettingOutlined />
-                  </a-button>
-                </div>
-              </a-form-item>
+              <CatalogManager
+                v-if="selectedLanguagePairId"
+                :language-pair-id="selectedLanguagePairId"
+                :selected-catalog-id="selectedCatalogId"
+                @select="handleCatalogSelect"
+                @catalog-created="handleCatalogCreated"
+                @catalog-deleted="handleCatalogDeleted"
+              />
+              <div v-else class="empty-state" style="padding: 20px 0;">
+                <a-empty :description="t('thesaurus.selectLanguagePairFirst', 'Select a language pair first')" :image="false" />
+              </div>
             </a-form>
           </a-card>
         </a-col>
@@ -170,14 +155,6 @@
       </a-row>
     </div>
 
-    <!-- Catalog Manager Dialog -->
-    <CatalogManager
-      v-model:visible="showCatalogManager"
-      :language-pair-id="selectedLanguagePairId"
-      @catalog-created="handleCatalogCreated"
-      @catalog-deleted="handleCatalogDeleted"
-    />
-
     <!-- Term Edit Dialog -->
     <TermEditDialog
       v-model:visible="showTermDialog"
@@ -198,13 +175,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useThesaurusStore } from '@/stores/thesaurus'
 import { useConfigStore } from '@/stores/config'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useLanguage } from '@/composables/useLanguage'
-import type { TermPair, LanguagePair } from '@/types'
+import type { TermPair } from '@/types'
 import type { TablePaginationConfig } from 'ant-design-vue'
 import {
   GlobalOutlined,
@@ -215,7 +192,6 @@ import {
   UploadOutlined,
   DownloadOutlined,
   MoreOutlined,
-  SettingOutlined,
 } from '@ant-design/icons-vue'
 
 // Lazy load dialog components
@@ -239,7 +215,6 @@ const { t } = useLanguage()
 const selectedLanguagePairId = ref<string>('')
 const selectedCatalogId = ref<string>('')
 const searchText = ref('')
-const showCatalogManager = ref(false)
 const showTermDialog = ref(false)
 const showImportDialog = ref(false)
 const editingTerm = ref<TermPair | null>(null)
@@ -292,7 +267,7 @@ const pagination = computed<TablePaginationConfig>(() => ({
   total: thesaurusStore.totalItems,
   showSizeChanger: true,
   showQuickJumper: true,
-  showTotal: (total: number) => `Total ${total} terms`,
+  showTotal: (total: number) => t('thesaurus.totalTerms', { total }),
 }))
 
 // Methods
@@ -331,6 +306,11 @@ async function handleLanguagePairChange(languagePairId: string) {
       errorHandler.handleError(err, 'Load Catalogs')
     }
   }
+}
+
+function handleCatalogSelect(catalogId: string) {
+  selectedCatalogId.value = catalogId
+  handleCatalogChange(catalogId)
 }
 
 async function handleCatalogChange(catalogId: string) {
@@ -529,6 +509,27 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.sticky-card {
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+/* Hide scrollbar for sticky card but allow scrolling */
+.sticky-card::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sticky-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sticky-card::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
 .card-header {
   display: flex;
   align-items: center;
@@ -558,6 +559,12 @@ onMounted(() => {
   flex: 1;
 }
 
+.form-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
 .empty-state {
   padding: 60px 0;
   opacity: 0.6;
@@ -585,6 +592,13 @@ onMounted(() => {
   
   .page-header h1 {
     font-size: 22px;
+  }
+  
+  .sticky-card {
+    position: relative;
+    top: 0;
+    max-height: none;
+    overflow-y: visible;
   }
 }
 </style>

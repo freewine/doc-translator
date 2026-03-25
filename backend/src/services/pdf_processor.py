@@ -24,30 +24,52 @@ from .document_processor import (
 class PDFProcessor(DocumentProcessor):
     """
     Document processor for PDF files (.pdf).
-    
+
     Extracts text from:
     - Text blocks with bounding boxes
     - Font information where available
     - Reading order preservation
-    
+
     Preserves formatting during translation writing:
     - Original layout and page structure
     - Font size and color where possible
     - Embedded images and vector graphics
-    
+
     Note: This processor only works with text-based PDFs.
     Scanned/image-only PDFs are detected and rejected with an appropriate error.
     """
-    
+
+    # Built-in font mapping: (family, bold, italic) -> PyMuPDF font code
+    _FONT_MAP = {
+        ("sans", False, False): "helv",
+        ("sans", True, False): "hebo",
+        ("sans", False, True): "heit",
+        ("sans", True, True): "hebi",
+        ("serif", False, False): "tiro",
+        ("serif", True, False): "tibo",
+        ("serif", False, True): "tiit",
+        ("serif", True, True): "tibi",
+        ("mono", False, False): "cour",
+        ("mono", True, False): "cobo",
+        ("mono", False, True): "coit",
+        ("mono", True, True): "cobi",
+    }
+
+    # Keywords for font family detection from font name
+    _MONO_KEYWORDS = ("courier", "mono", "consolas", "menlo", "firacode", "inconsolata")
+    _SERIF_KEYWORDS = ("times", "serif", "garamond", "georgia", "palatino", "cambria", "book")
+
     def __init__(self, logger: Optional[logging.Logger] = None):
         """
         Initialize the PDF document processor.
-        
+
         Args:
             logger: Logger instance for logging operations
         """
         self.logger = logger or logging.getLogger(__name__)
         self._current_document: Optional[fitz.Document] = None
+        self._font_cache: dict[str, fitz.Font] = {}
+        self._page_bg_cache: dict[int, tuple[float, float, float]] = {}
 
     @property
     def supported_extensions(self) -> List[str]:
@@ -82,6 +104,7 @@ class PDFProcessor(DocumentProcessor):
             raise ValueError(f"Failed to load PDF file: {file_path}. Error: {str(e)}")
         
         self._current_document = document
+        self._extract_document_fonts(document)
         segments: List[TextSegment] = []
         segment_id = 0
         
@@ -191,6 +214,122 @@ class PDFProcessor(DocumentProcessor):
         return segments
 
 
+    def _build_span_html(self, spans: list[dict], translated_text: str) -> str:
+        """
+        Build HTML with per-span formatting for multi-span lines.
+
+        Distributes translated text proportionally across original span
+        boundaries and wraps each portion in a <span> with the original
+        span's CSS styling.
+        """
+        portions = self._distribute_text_to_spans(spans, translated_text)
+        html_parts = []
+        for span, text_portion in zip(spans, portions):
+            css = self._get_css_for_span(span)
+            escaped = text_portion.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            escaped = escaped.replace("\n", "<br/>")
+            html_parts.append(f'<span style="{css}">{escaped}</span>')
+        return "".join(html_parts)
+
+    def _distribute_text_to_spans(
+        self, spans: list[dict], translated_text: str
+    ) -> list[str]:
+        """
+        Distribute translated text proportionally across spans.
+
+        Uses original span character ratios, splitting at word boundaries
+        when possible.
+        """
+        if len(spans) <= 1:
+            return [translated_text]
+
+        # Calculate character ratios from original spans
+        original_lengths = [max(len(s.get("text", "")), 1) for s in spans]
+        total_original = sum(original_lengths)
+        ratios = [length / total_original for length in original_lengths]
+
+        words = translated_text.split(" ")
+        total_words = len(words)
+        portions: list[str] = []
+        word_idx = 0
+
+        for i, ratio in enumerate(ratios):
+            if i == len(ratios) - 1:
+                # Last span gets remaining words
+                portions.append(" ".join(words[word_idx:]))
+            else:
+                # Allocate words proportionally
+                target_words = max(1, round(ratio * total_words))
+                end_idx = min(word_idx + target_words, total_words)
+                portions.append(" ".join(words[word_idx:end_idx]))
+                word_idx = end_idx
+
+        return portions
+
+    def _detect_background_color(
+        self, page: fitz.Page, page_idx: int
+    ) -> tuple[float, float, float]:
+        """
+        Detect the background color of a page by sampling edge pixels.
+
+        Caches result per page index since most pages have uniform backgrounds.
+        Returns RGB tuple in 0-1 range.
+        """
+        if page_idx in self._page_bg_cache:
+            return self._page_bg_cache[page_idx]
+
+        bg_color = (1.0, 1.0, 1.0)  # default white
+        try:
+            # Render a small strip from the top-left corner
+            clip = fitz.Rect(0, 0, min(50, page.rect.width), min(50, page.rect.height))
+            pix = page.get_pixmap(clip=clip, dpi=36)
+            # Sample corner pixels (likely background)
+            samples: list[tuple[int, ...]] = []
+            for sx, sy in [(0, 0), (pix.width - 1, 0), (0, pix.height - 1)]:
+                sx = max(0, min(sx, pix.width - 1))
+                sy = max(0, min(sy, pix.height - 1))
+                pixel = pix.pixel(sx, sy)
+                samples.append(pixel[:3])
+
+            # Use the most common sampled color
+            from collections import Counter
+            most_common = Counter(samples).most_common(1)[0][0]
+            bg_color = (most_common[0] / 255.0, most_common[1] / 255.0, most_common[2] / 255.0)
+        except Exception as e:
+            self.logger.debug(f"Background color detection failed for page {page_idx}: {e}")
+
+        self._page_bg_cache[page_idx] = bg_color
+        return bg_color
+
+    def _extract_document_fonts(self, document: fitz.Document) -> None:
+        """
+        Extract embedded fonts from the document and cache them for reuse.
+
+        Fonts that are fully embedded can be reused for rendering translated text.
+        Subsetted or protected fonts are silently skipped.
+        """
+        self._font_cache.clear()
+        seen_xrefs: set[int] = set()
+
+        try:
+            for page_idx in range(len(document)):
+                page = document[page_idx]
+                for font_info in page.get_fonts(full=True):
+                    xref = font_info[0]
+                    if xref in seen_xrefs:
+                        continue
+                    seen_xrefs.add(xref)
+
+                    try:
+                        basename, _ext, _, content = document.extract_font(xref)
+                        if content and basename:
+                            font = fitz.Font(fontbuffer=content)
+                            self._font_cache[basename] = font
+                    except Exception:
+                        continue
+        except Exception as e:
+            self.logger.debug(f"Font extraction failed: {e}")
+
     async def write_translated(
         self,
         file_path: Path,
@@ -252,9 +391,11 @@ class PDFProcessor(DocumentProcessor):
             
             self.logger.info(f"Saved translated PDF document to: {output_path}")
             
-            # Close and clear the cached document
+            # Close and clear cached state
             document.close()
             self._current_document = None
+            self._font_cache.clear()
+            self._page_bg_cache.clear()
             
             return True
             
@@ -322,8 +463,8 @@ class PDFProcessor(DocumentProcessor):
         Write translations to a single PDF page.
 
         For each segment:
-        1. Redact the original text area with white fill
-        2. Insert translated text at the same position
+        1. Redact the original text area with detected background color
+        2. Insert translated text at the same position with preserved formatting
         """
         # Pre-compute vertical ordering for next-segment-top lookup
         sorted_segments = sorted(
@@ -335,6 +476,10 @@ class PDFProcessor(DocumentProcessor):
             if i + 1 < len(sorted_segments):
                 next_bbox = sorted_segments[i + 1][0].metadata.get("line_bbox", (0, 0, 0, 0))
                 next_top_map[seg.id] = next_bbox[1]
+
+        # Detect background color for this page
+        page_idx = page_segments[0][0].metadata.get("page_idx", 0) if page_segments else 0
+        bg_color = self._detect_background_color(page, page_idx)
 
         # First pass: add redaction annotations for all original text areas
         for segment, translation in page_segments:
@@ -358,7 +503,7 @@ class PDFProcessor(DocumentProcessor):
                 else:
                     rect = fitz.Rect(line_bbox) + (-1, -1, 1, 1)
 
-                page.add_redact_annot(rect, fill=(1, 1, 1))  # White fill
+                page.add_redact_annot(rect, fill=bg_color)
 
         # Apply all redactions at once
         page.apply_redactions()
@@ -401,12 +546,14 @@ class PDFProcessor(DocumentProcessor):
                     self._insert_unicode_text(
                         page, x, 0, translation, adjusted_font_size,
                         font_color, text_width, output_rect=output_rect,
+                        spans_metadata=spans,
                     )
                 else:
-                    # Single line: original behavior
+                    # Single line
                     y = line_bbox[3] - 2  # Small offset for baseline
                     self._insert_unicode_text(
-                        page, x, y, translation, font_size, font_color, text_width,
+                        page, x, y, translation, font_size, font_color,
+                        text_width, spans_metadata=spans,
                     )
 
     def _insert_unicode_text(
@@ -419,13 +566,14 @@ class PDFProcessor(DocumentProcessor):
         color: tuple[float, float, float],
         max_width: float,
         output_rect: Optional[fitz.Rect] = None,
+        spans_metadata: Optional[list[dict]] = None,
     ) -> None:
         """
-        Insert text with full Unicode support.
+        Insert text with full Unicode support and format preservation.
 
-        For single-line text, uses TextWriter for precise positioning.
-        For multi-line text (append/interleaved modes), uses insert_htmlbox
-        with a pre-calculated rect that accommodates all lines.
+        For multi-span text, builds per-span HTML with individual styling.
+        For single-line text, uses TextWriter with resolved font.
+        For multi-line text (append/interleaved modes), uses insert_htmlbox.
 
         Args:
             page: The PDF page to insert text into
@@ -436,12 +584,34 @@ class PDFProcessor(DocumentProcessor):
             color: RGB color tuple (0-1 range)
             max_width: Maximum width available for text
             output_rect: Pre-calculated rect for multi-line rendering
+            spans_metadata: Original span metadata list for per-span formatting
         """
+        # Resolve font from first span metadata if available
+        font_name = ""
+        flags = 0
+        if spans_metadata:
+            font_name = spans_metadata[0].get("font", "")
+            flags = spans_metadata[0].get("flags", 0)
+
+        resolved_font, css_family, css_extra = self._resolve_font(font_name, flags)
         css = (
             f"* {{font-size: {font_size}pt; "
             f"color: rgb({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}); "
-            f"font-family: sans-serif;}}"
+            f"font-family: {css_family}; {css_extra}}}"
         )
+
+        # Multi-span path: build rich HTML with per-span formatting
+        if spans_metadata and len(spans_metadata) > 1:
+            html_content = self._build_span_html(spans_metadata, text)
+            rect = output_rect or fitz.Rect(
+                x, y - font_size, x + max_width, y + font_size * 2
+            )
+            try:
+                page.insert_htmlbox(rect, html_content)
+                return
+            except Exception as e:
+                self.logger.warning(f"Failed multi-span htmlbox insert: {e}")
+                # Fall through to single-format rendering
 
         if output_rect is not None:
             # Multi-line path: use insert_htmlbox with expanded rect
@@ -452,15 +622,23 @@ class PDFProcessor(DocumentProcessor):
             except Exception as e:
                 self.logger.warning(f"Failed to insert multi-line text via htmlbox: {e}")
 
-        # Single-line path: use TextWriter for precise positioning
+        # Single-line path: use TextWriter with resolved font
         try:
             tw = fitz.TextWriter(page.rect)
-            font = fitz.Font("helv")
             try:
-                tw.append((x, y), text, font=font, fontsize=font_size)
+                tw.append((x, y), text, font=resolved_font, fontsize=font_size)
                 tw.write_text(page, color=color)
+                return
             except Exception:
-                # Fallback: use insert_htmlbox which handles Unicode better
+                # Fallback: try Helvetica for broad glyph coverage
+                try:
+                    tw2 = fitz.TextWriter(page.rect)
+                    tw2.append((x, y), text, font=fitz.Font("helv"), fontsize=font_size)
+                    tw2.write_text(page, color=color)
+                    return
+                except Exception:
+                    pass
+                # Fallback: use insert_htmlbox which handles Unicode/CJK better
                 rect = fitz.Rect(x, y - font_size, x + max_width, y + font_size * 2)
                 page.insert_htmlbox(rect, text, css=css)
         except Exception as e:
@@ -492,6 +670,71 @@ class PDFProcessor(DocumentProcessor):
         
         return (r / 255.0, g / 255.0, b / 255.0)
 
+    def _resolve_font(
+        self, font_name: str, flags: int
+    ) -> tuple[fitz.Font, str, str]:
+        """
+        Resolve original font metadata to the best available font.
+
+        Args:
+            font_name: Original font name from PDF span metadata
+            flags: Font flags from PDF span metadata
+
+        Returns:
+            Tuple of (fitz.Font, css_family, css_extra_styles)
+            css_extra_styles contains font-weight and font-style declarations.
+        """
+        is_bold = bool(flags & (1 << 4))
+        is_italic = bool(flags & (1 << 1))
+
+        # Try embedded font cache first
+        if font_name and font_name in self._font_cache:
+            try:
+                font = self._font_cache[font_name]
+                css_family = "sans-serif"
+                css_extra = self._css_weight_style(is_bold, is_italic)
+                return font, css_family, css_extra
+            except Exception:
+                pass
+
+        # Determine family category
+        name_lower = font_name.lower() if font_name else ""
+        if any(kw in name_lower for kw in self._MONO_KEYWORDS) or (flags & (1 << 3)):
+            family = "mono"
+            css_family = "monospace"
+        elif any(kw in name_lower for kw in self._SERIF_KEYWORDS) or (flags & (1 << 2)):
+            family = "serif"
+            css_family = "serif"
+        else:
+            family = "sans"
+            css_family = "sans-serif"
+
+        font_code = self._FONT_MAP.get((family, is_bold, is_italic), "helv")
+        css_extra = self._css_weight_style(is_bold, is_italic)
+        return fitz.Font(font_code), css_family, css_extra
+
+    @staticmethod
+    def _css_weight_style(is_bold: bool, is_italic: bool) -> str:
+        parts = []
+        if is_bold:
+            parts.append("font-weight: bold;")
+        if is_italic:
+            parts.append("font-style: italic;")
+        return " ".join(parts)
+
+    def _get_css_for_span(self, span: dict) -> str:
+        """Build inline CSS string from span metadata."""
+        font_name = span.get("font", "")
+        flags = span.get("flags", 0)
+        size = span.get("size", 12)
+        color = self._int_to_rgb(span.get("color", 0))
+        _, css_family, css_extra = self._resolve_font(font_name, flags)
+        return (
+            f"font-size: {size}pt; "
+            f"font-family: {css_family}; "
+            f"color: rgb({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)}); "
+            f"{css_extra}"
+        )
 
     async def validate_file(self, file_path: Path) -> tuple[bool, Optional[str]]:
         """

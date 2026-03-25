@@ -17,7 +17,6 @@ export default {
 
   // Login Page
   login: {
-    title: 'Đăng nhập',
     username: 'Tên người dùng',
     password: 'Mật khẩu',
     submit: 'Đăng nhập',
@@ -34,42 +33,19 @@ export default {
   fileUpload: {
     title: 'Tải tệp lên',
     dragDrop: 'Kéo thả tệp vào đây hoặc nhấp để tải lên',
-    selectFiles: 'Chọn tệp',
     selectedFiles: 'Tệp đã chọn',
-    noFiles: 'Chưa chọn tệp',
-    fileCount: '{count} tệp',
-    fileName: 'Tên tệp',
-    fileSize: 'Kích thước',
     remove: 'Xóa',
-    clear: 'Xóa tất cả',
-    uploadError: 'Tải lên thất bại',
     invalidFormat: 'Các định dạng hỗ trợ: .xlsx, .docx, .pptx, .pdf, .txt, .md',
     uploading: 'Đang tải lên...',
-    supportedFormats: 'Các định dạng hỗ trợ: Excel (.xlsx), Word (.docx), PowerPoint (.pptx), PDF (.pdf), Văn bản (.txt), Markdown (.md)',
     uploadComplete: 'Tải lên hoàn tất',
     uploadSuccess: 'Đã tải lên thành công {count} tệp{failed}',
     failed: 'thất bại'
   },
 
-  // Document Types
-  documentType: {
-    excel: 'Bảng tính Excel',
-    word: 'Tài liệu Word',
-    powerpoint: 'Bản trình bày PowerPoint',
-    pdf: 'Tài liệu PDF',
-    text: 'Văn bản',
-    markdown: 'Markdown',
-    unknown: 'Loại không xác định'
-  },
-
   // Main Page - Language Pair
   languagePair: {
     title: 'Cặp ngôn ngữ',
-    select: 'Chọn cặp ngôn ngữ',
-    source: 'Ngôn ngữ nguồn',
-    target: 'Ngôn ngữ đích',
-    noLanguagePairs: 'Chưa cấu hình cặp ngôn ngữ, vui lòng thêm trong trang cài đặt',
-    required: 'Vui lòng chọn cặp ngôn ngữ'
+    select: 'Chọn cặp ngôn ngữ'
   },
 
   // Main Page - Translation
@@ -77,12 +53,6 @@ export default {
     title: 'Bảng điều khiển dịch',
     subtitle: 'Tải lên tài liệu và dịch ngay lập tức.',
     start: 'Bắt đầu dịch',
-    starting: 'Đang khởi động...',
-    processing: 'Đang dịch...',
-    selectFiles: 'Vui lòng chọn tệp trước',
-    selectLanguagePair: 'Vui lòng chọn cặp ngôn ngữ trước',
-    error: 'Dịch thất bại',
-    success: 'Dịch hoàn tất',
     actionDescription: 'Sẵn sàng dịch? Nhấp vào nút bên dưới để bắt đầu.',
     validationUpload: 'Vui lòng tải lên ít nhất một tài liệu',
     validationLanguage: 'Vui lòng chọn cặp ngôn ngữ'
@@ -95,7 +65,17 @@ export default {
     files: 'tệp',
     failedFiles: 'Tệp thất bại',
     translationWarnings: 'Cảnh báo dịch thuật',
-    totalJobs: 'Tổng cộng {count} công việc'
+    totalJobs: 'Tổng cộng {count} công việc',
+    started: 'Đã bắt đầu dịch',
+    startedDesc: 'Các tệp của bạn đang được dịch.',
+    completed: 'Dịch hoàn tất',
+    completedDesc: 'Đã dịch thành công {filesCompleted} tệp.',
+    completedWithWarnings: 'Dịch hoàn tất với cảnh báo',
+    completedWithWarningsDesc: 'Đã dịch {filesCompleted} tệp, nhưng {failedSegments} đoạn dịch thất bại trong {warningFiles} tệp.',
+    partialSuccess: 'Dịch hoàn tất một phần',
+    partialSuccessDesc: '{filesCompleted} tệp thành công, {filesFailed} tệp thất bại.',
+    failed: 'Dịch thất bại',
+    failedDesc: 'Vui lòng kiểm tra chi tiết lỗi.'
   },
 
   // Progress Tracker
@@ -104,22 +84,9 @@ export default {
     overall: 'Tiến độ tổng thể',
     currentFile: 'Tệp hiện tại',
     filesCompleted: 'tệp đã hoàn thành',
-    filesTotal: 'Tổng số tệp',
-    cellsTranslated: 'Ô đã dịch',
-    cellsTotal: 'Tổng số ô',
-    segmentsTranslated: 'Đoạn đã dịch',
-    segmentsTotal: 'Tổng số đoạn',
     segments: 'đoạn',
-    status: {
-      pending: 'Đang chờ',
-      processing: 'Đang xử lý',
-      completed: 'Đã hoàn thành',
-      failed: 'Thất bại',
-      partial: 'Thành công một phần'
-    },
     errors: 'Lỗi',
     warnings: 'Cảnh báo',
-    noErrors: 'Không có lỗi',
     jobTitle: 'Công việc dịch',
     loading: 'Đang tải trạng thái công việc...',
     noActiveJob: 'Không có công việc dịch đang hoạt động',
@@ -129,39 +96,20 @@ export default {
 
   // File Download
   download: {
-    title: 'Tải xuống tệp',
-    button: 'Tải xuống',
-    downloading: 'Đang tải xuống...',
-    success: 'Tải xuống thành công',
-    error: 'Tải xuống thất bại',
-    noFiles: 'Chưa có tệp để tải xuống'
+    button: 'Tải xuống'
   },
 
   // Settings Page
   settings: {
-    title: 'Cài đặt',
     subtitle: 'Quản lý mô hình dịch và cấu hình ngôn ngữ.',
     languagePairs: 'Quản lý cặp ngôn ngữ',
     addLanguagePair: 'Thêm cặp ngôn ngữ',
-    removeLanguagePair: 'Xóa',
     sourceLanguage: 'Ngôn ngữ nguồn',
     targetLanguage: 'Ngôn ngữ đích',
     sourceCode: 'Mã ngôn ngữ nguồn',
     targetCode: 'Mã ngôn ngữ đích',
-    save: 'Lưu',
-    saving: 'Đang lưu...',
-    saved: 'Lưu thành công',
-    cancel: 'Hủy',
-    reset: 'Đặt lại',
     noLanguagePairs: 'Chưa có cặp ngôn ngữ được cấu hình',
-    addSuccess: 'Thêm thành công',
-    addError: 'Thêm thất bại',
-    removeSuccess: 'Xóa thành công',
-    removeError: 'Xóa thất bại',
     uiLanguage: 'Ngôn ngữ giao diện',
-    chinese: '中文',
-    vietnamese: 'Tiếng Việt',
-    english: 'English',
     translationModel: 'Mô hình dịch',
     selectModel: 'Chọn mô hình AI',
     currentModel: 'Mô hình đang sử dụng',
@@ -190,56 +138,26 @@ export default {
     updateModelError: 'Cập nhật mô hình thất bại'
   },
 
-  // Notifications
-  notification: {
-    success: 'Thành công',
-    error: 'Lỗi',
-    warning: 'Cảnh báo',
-    info: 'Thông tin'
-  },
-
   // Validation
   validation: {
     required: 'Trường này là bắt buộc',
-    invalidFormat: 'Định dạng không hợp lệ',
     tooLong: 'Nội dung nhập quá dài',
-    tooShort: 'Nội dung nhập quá ngắn',
-    duplicate: 'Mục này đã tồn tại'
+    tooShort: 'Nội dung nhập quá ngắn'
   },
 
   // Common
   common: {
-    loading: 'Đang tải...',
-    confirm: 'Xác nhận',
     cancel: 'Hủy',
-    close: 'Đóng',
     save: 'Lưu',
     delete: 'Xóa',
     edit: 'Chỉnh sửa',
     add: 'Thêm',
-    search: 'Tìm kiếm',
-    filter: 'Lọc',
-    refresh: 'Làm mới',
-    back: 'Quay lại',
-    next: 'Tiếp theo',
-    previous: 'Trước',
-    submit: 'Gửi',
-    reset: 'Đặt lại',
-    clear: 'Xóa',
     yes: 'Có',
     no: 'Không',
     ok: 'OK',
     to: 'đến',
-    bytes: 'byte',
-    kb: 'KB',
-    mb: 'MB',
-    gb: 'GB',
     optional: 'Tùy chọn',
-    actions: 'Hành động',
-    justNow: 'vừa xong',
-    minutesAgo: ' phút trước',
-    hoursAgo: ' giờ trước',
-    daysAgo: ' ngày trước'
+    actions: 'Hành động'
   },
 
   // Thesaurus
@@ -265,19 +183,14 @@ export default {
     termAdded: 'Đã thêm thuật ngữ thành công',
     termUpdated: 'Đã cập nhật thuật ngữ thành công',
     exportSuccess: 'Xuất hoàn tất',
-    manageCatalogs: 'Quản lý danh mục',
-    createCatalog: 'Tạo danh mục mới',
-    catalogName: 'Tên',
     catalogNamePlaceholder: 'Ví dụ: Thuật ngữ CNTT',
-    catalogDescription: 'Mô tả',
-    catalogDescriptionPlaceholder: 'Mô tả tùy chọn',
-    existingCatalogs: 'Danh mục hiện có',
-    noCatalogs: 'Chưa có danh mục',
+    catalogs: 'Danh mục',
     confirmDeleteCatalog: 'Xóa danh mục này và tất cả thuật ngữ?',
     catalogCreated: 'Đã tạo danh mục thành công',
     catalogRenamed: 'Đã đổi tên danh mục thành công',
     catalogDeleted: 'Đã xóa danh mục',
-    terms: 'thuật ngữ',
+    catalogDeletedTerms: '{count} thuật ngữ cũng đã bị xóa',
+    totalTerms: 'Tổng cộng {total} thuật ngữ',
     sourceTermPlaceholder: 'Nhập thuật ngữ nguồn',
     targetTermPlaceholder: 'Nhập bản dịch thuật ngữ đích',
     sourceTermReadonly: 'Không thể thay đổi thuật ngữ nguồn khi chỉnh sửa',
@@ -298,7 +211,6 @@ export default {
     emptyFile: 'Tệp trống',
     insufficientColumns: 'Không đủ cột',
     emptyTerms: 'Thuật ngữ nguồn hoặc đích trống',
-    selectCatalogs: 'Chọn danh mục thuật ngữ',
     catalogSelectorHelp: 'Chọn danh mục để sử dụng cho dịch. Kéo để sắp xếp ưu tiên.',
     noCatalogsAvailable: 'Không có danh mục cho cặp ngôn ngữ này',
     availableCatalogs: 'Có sẵn',
@@ -314,29 +226,13 @@ export default {
     label: 'Chế độ xuất',
     tooltip: 'Chọn cách kết hợp văn bản gốc và bản dịch trong tài liệu xuất.',
     replace: 'Thay thế',
-    replaceDescription: 'Thay thế văn bản gốc bằng bản dịch',
     append: 'Nối thêm',
-    appendDescription: 'Nối bản dịch sau văn bản gốc',
-    interleaved: 'Xen kẽ',
-    interleavedDescription: 'Xen kẽ từng dòng văn bản gốc và bản dịch'
+    interleaved: 'Xen kẽ'
   },
 
   // Error Messages
   error: {
-    network: 'Lỗi mạng',
-    server: 'Lỗi máy chủ',
-    unauthorized: 'Chưa được ủy quyền, vui lòng đăng nhập lại',
-    forbidden: 'Không có quyền truy cập',
-    notFound: 'Không tìm thấy',
-    timeout: 'Hết thời gian chờ',
     unknown: 'Lỗi không xác định',
-    // Document processing errors
-    passwordProtected: 'Tệp này được bảo vệ bằng mật khẩu. Vui lòng xóa mật khẩu và thử lại',
-    corrupted: 'Tệp này bị hỏng hoặc có định dạng không hợp lệ, không thể đọc được',
-    scannedPdf: 'PDF này chỉ chứa hình ảnh quét. Vui lòng sử dụng phần mềm OCR để chuyển đổi trước',
-    emptyDocument: 'Tài liệu này không chứa văn bản có thể dịch',
-    unsupportedFormat: 'Định dạng tệp không được hỗ trợ. Các định dạng hỗ trợ: .xlsx, .docx, .pptx, .pdf, .txt, .md',
-    processingFailed: 'Xử lý tài liệu thất bại: {reason}',
     // ErrorDisplay component
     retrying: 'Đang thử lại...',
     retry: 'Thử lại',
@@ -366,8 +262,6 @@ export default {
     role: 'Vai trò',
     status: 'Trạng thái',
     createdAt: 'Ngày tạo',
-    lastLoginAt: 'Đăng nhập lần cuối',
-    neverLoggedIn: 'Chưa đăng nhập',
     currentUser: 'Người dùng hiện tại',
     noUsers: 'Chưa có người dùng',
     unlock: 'Mở khóa',
@@ -398,9 +292,7 @@ export default {
       DELETED: 'Đã xóa'
     },
     errors: {
-      userAlreadyExists: 'Tên người dùng đã tồn tại',
-      cannotDeleteSelf: 'Không thể xóa chính mình',
-      cannotChangeOwnRole: 'Không thể thay đổi vai trò của chính mình'
+      userAlreadyExists: 'Tên người dùng đã tồn tại'
     }
   },
 

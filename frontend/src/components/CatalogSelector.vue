@@ -1,12 +1,5 @@
 <template>
   <div class="catalog-selector">
-    <div class="selector-header">
-      <span class="label">{{ t('thesaurus.selectCatalogs', 'Select Term Catalogs') }}</span>
-      <a-tooltip :title="t('thesaurus.catalogSelectorHelp', 'Select catalogs to use for translation. Drag to reorder priority.')">
-        <QuestionCircleOutlined class="help-icon" />
-      </a-tooltip>
-    </div>
-
     <div v-if="catalogs.length === 0" class="empty-state">
       <span class="empty-text">{{ t('thesaurus.noCatalogsAvailable', 'No catalogs available for this language pair') }}</span>
     </div>
@@ -74,7 +67,6 @@ import { useThesaurusStore } from '@/stores/thesaurus'
 import { useLanguage } from '@/composables/useLanguage'
 import type { Catalog } from '@/types'
 import {
-  QuestionCircleOutlined,
   HolderOutlined,
   CloseOutlined,
   WarningOutlined,
@@ -195,27 +187,7 @@ function handleDragEnd() {
 
 <style scoped>
 .catalog-selector {
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 16px;
   background: var(--surface-color);
-}
-
-.selector-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.label {
-  font-weight: 500;
-  color: var(--text-main);
-}
-
-.help-icon {
-  color: var(--text-secondary);
-  cursor: help;
 }
 
 .empty-state {

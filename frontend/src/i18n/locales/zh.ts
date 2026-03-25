@@ -17,7 +17,6 @@ export default {
 
   // Login Page
   login: {
-    title: '登录',
     username: '用户名',
     password: '密码',
     submit: '登录',
@@ -34,42 +33,19 @@ export default {
   fileUpload: {
     title: '文件上传',
     dragDrop: '拖拽文件到此处或点击上传',
-    selectFiles: '选择文件',
     selectedFiles: '已选择的文件',
-    noFiles: '未选择文件',
-    fileCount: '{count} 个文件',
-    fileName: '文件名',
-    fileSize: '大小',
     remove: '移除',
-    clear: '清除所有',
-    uploadError: '上传失败',
     invalidFormat: '支持的格式：.xlsx, .docx, .pptx, .pdf, .txt, .md',
     uploading: '上传中...',
-    supportedFormats: '支持的格式：Excel (.xlsx)、Word (.docx)、PowerPoint (.pptx)、PDF (.pdf)、文本 (.txt)、Markdown (.md)',
     uploadComplete: '上传完成',
     uploadSuccess: '成功上传 {count} 个文件{failed}',
     failed: '失败'
   },
 
-  // Document Types
-  documentType: {
-    excel: 'Excel 表格',
-    word: 'Word 文档',
-    powerpoint: 'PowerPoint 演示文稿',
-    pdf: 'PDF 文档',
-    text: '文本',
-    markdown: 'Markdown',
-    unknown: '未知类型'
-  },
-
   // Main Page - Language Pair
   languagePair: {
     title: '语言对',
-    select: '选择语言对',
-    source: '源语言',
-    target: '目标语言',
-    noLanguagePairs: '未配置语言对，请前往设置页面添加',
-    required: '请选择语言对'
+    select: '选择语言对'
   },
 
   // Main Page - Translation
@@ -77,12 +53,6 @@ export default {
     title: '翻译仪表板',
     subtitle: '上传您的文档并立即翻译。',
     start: '开始翻译',
-    starting: '启动中...',
-    processing: '翻译中...',
-    selectFiles: '请先选择文件',
-    selectLanguagePair: '请先选择语言对',
-    error: '翻译失败',
-    success: '翻译完成',
     actionDescription: '准备好翻译了吗？点击下方按钮开始。',
     validationUpload: '请至少上传一个文档',
     validationLanguage: '请选择语言对'
@@ -95,7 +65,17 @@ export default {
     files: '个文件',
     failedFiles: '失败的文件',
     translationWarnings: '翻译警告',
-    totalJobs: '共 {count} 个任务'
+    totalJobs: '共 {count} 个任务',
+    started: '翻译已开始',
+    startedDesc: '您的文件正在翻译中。',
+    completed: '翻译完成',
+    completedDesc: '已成功翻译 {filesCompleted} 个文件。',
+    completedWithWarnings: '翻译完成（有警告）',
+    completedWithWarningsDesc: '已翻译 {filesCompleted} 个文件，但 {warningFiles} 个文件中有 {failedSegments} 个片段翻译失败。',
+    partialSuccess: '翻译部分完成',
+    partialSuccessDesc: '{filesCompleted} 个文件成功，{filesFailed} 个文件失败。',
+    failed: '翻译失败',
+    failedDesc: '请检查错误详情。'
   },
 
   // Progress Tracker
@@ -104,22 +84,9 @@ export default {
     overall: '总体进度',
     currentFile: '当前文件',
     filesCompleted: '个文件已完成',
-    filesTotal: '总文件数',
-    cellsTranslated: '已翻译单元格',
-    cellsTotal: '总单元格数',
-    segmentsTranslated: '已翻译段落',
-    segmentsTotal: '总段落数',
     segments: '段落',
-    status: {
-      pending: '等待中',
-      processing: '处理中',
-      completed: '已完成',
-      failed: '失败',
-      partial: '部分成功'
-    },
     errors: '错误',
     warnings: '警告',
-    noErrors: '无错误',
     jobTitle: '翻译任务',
     loading: '正在加载任务状态...',
     noActiveJob: '没有进行中的翻译任务',
@@ -129,39 +96,20 @@ export default {
 
   // File Download
   download: {
-    title: '下载文件',
-    button: '下载',
-    downloading: '下载中...',
-    success: '下载成功',
-    error: '下载失败',
-    noFiles: '暂无可下载文件'
+    button: '下载'
   },
 
   // Settings Page
   settings: {
-    title: '设置',
     subtitle: '管理翻译模型和语言配置。',
     languagePairs: '语言对管理',
     addLanguagePair: '添加语言对',
-    removeLanguagePair: '删除',
     sourceLanguage: '源语言',
     targetLanguage: '目标语言',
     sourceCode: '源语言代码',
     targetCode: '目标语言代码',
-    save: '保存',
-    saving: '保存中...',
-    saved: '保存成功',
-    cancel: '取消',
-    reset: '重置',
     noLanguagePairs: '暂无配置的语言对',
-    addSuccess: '添加成功',
-    addError: '添加失败',
-    removeSuccess: '删除成功',
-    removeError: '删除失败',
     uiLanguage: '界面语言',
-    chinese: '中文',
-    vietnamese: 'Tiếng Việt',
-    english: 'English',
     translationModel: '翻译模型',
     selectModel: '选择AI模型',
     currentModel: '当前使用的模型',
@@ -190,56 +138,26 @@ export default {
     updateModelError: '更新模型失败'
   },
 
-  // Notifications
-  notification: {
-    success: '成功',
-    error: '错误',
-    warning: '警告',
-    info: '信息'
-  },
-
   // Validation
   validation: {
     required: '此字段为必填项',
-    invalidFormat: '格式无效',
     tooLong: '输入内容过长',
-    tooShort: '输入内容过短',
-    duplicate: '该项已存在'
+    tooShort: '输入内容过短'
   },
 
   // Common
   common: {
-    loading: '加载中...',
-    confirm: '确认',
     cancel: '取消',
-    close: '关闭',
     save: '保存',
     delete: '删除',
     edit: '编辑',
     add: '添加',
-    search: '搜索',
-    filter: '筛选',
-    refresh: '刷新',
-    back: '返回',
-    next: '下一步',
-    previous: '上一步',
-    submit: '提交',
-    reset: '重置',
-    clear: '清除',
     yes: '是',
     no: '否',
     ok: '确定',
     to: '到',
-    bytes: '字节',
-    kb: 'KB',
-    mb: 'MB',
-    gb: 'GB',
     optional: '可选',
-    actions: '操作',
-    justNow: '刚刚',
-    minutesAgo: '分钟前',
-    hoursAgo: '小时前',
-    daysAgo: '天前'
+    actions: '操作'
   },
 
   // Thesaurus
@@ -265,19 +183,14 @@ export default {
     termAdded: '术语添加成功',
     termUpdated: '术语更新成功',
     exportSuccess: '导出完成',
-    manageCatalogs: '管理目录',
-    createCatalog: '创建新目录',
-    catalogName: '名称',
     catalogNamePlaceholder: '例如：IT术语',
-    catalogDescription: '描述',
-    catalogDescriptionPlaceholder: '可选描述',
-    existingCatalogs: '现有目录',
-    noCatalogs: '暂无目录',
+    catalogs: '目录',
     confirmDeleteCatalog: '删除此目录及其所有术语？',
     catalogCreated: '目录创建成功',
     catalogRenamed: '目录重命名成功',
     catalogDeleted: '目录已删除',
-    terms: '个术语',
+    catalogDeletedTerms: '同时删除了 {count} 个术语',
+    totalTerms: '共 {total} 个术语',
     sourceTermPlaceholder: '输入源术语',
     targetTermPlaceholder: '输入目标术语翻译',
     sourceTermReadonly: '编辑时无法更改源术语',
@@ -298,7 +211,6 @@ export default {
     emptyFile: '文件为空',
     insufficientColumns: '列数不足',
     emptyTerms: '源术语或目标术语为空',
-    selectCatalogs: '选择术语目录',
     catalogSelectorHelp: '选择用于翻译的目录。拖动以调整优先级。',
     noCatalogsAvailable: '此语言对没有可用目录',
     availableCatalogs: '可用',
@@ -314,29 +226,13 @@ export default {
     label: '输出模式',
     tooltip: '选择原文和译文在输出文档中的组合方式。',
     replace: '替换',
-    replaceDescription: '用译文替换原文',
     append: '追加',
-    appendDescription: '将译文追加到原文后面',
-    interleaved: '交错',
-    interleavedDescription: '原文和译文逐行交错排列'
+    interleaved: '交错'
   },
 
   // Error Messages
   error: {
-    network: '网络错误',
-    server: '服务器错误',
-    unauthorized: '未授权，请重新登录',
-    forbidden: '无权限访问',
-    notFound: '未找到',
-    timeout: '请求超时',
     unknown: '未知错误',
-    // Document processing errors
-    passwordProtected: '此文件受密码保护，请移除密码后重试',
-    corrupted: '此文件已损坏或格式错误，无法读取',
-    scannedPdf: '此 PDF 仅包含扫描图像，请先使用 OCR 软件转换',
-    emptyDocument: '此文档不包含可翻译的文本',
-    unsupportedFormat: '不支持的文件格式。支持的格式：.xlsx, .docx, .pptx, .pdf, .txt, .md',
-    processingFailed: '文档处理失败：{reason}',
     // ErrorDisplay component
     retrying: '重试中...',
     retry: '重试',
@@ -366,8 +262,6 @@ export default {
     role: '角色',
     status: '状态',
     createdAt: '创建时间',
-    lastLoginAt: '最后登录',
-    neverLoggedIn: '从未登录',
     currentUser: '当前用户',
     noUsers: '暂无用户',
     unlock: '解锁',
@@ -398,9 +292,7 @@ export default {
       DELETED: '已删除'
     },
     errors: {
-      userAlreadyExists: '用户名已存在',
-      cannotDeleteSelf: '不能删除自己',
-      cannotChangeOwnRole: '不能修改自己的角色'
+      userAlreadyExists: '用户名已存在'
     }
   },
 

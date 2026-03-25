@@ -1,7 +1,7 @@
 export default {
   // Application
   app: {
-    title: 'Document Translation'
+    title: 'Doc Translation'
   },
 
   // Navigation
@@ -17,7 +17,6 @@ export default {
 
   // Login Page
   login: {
-    title: 'Login',
     username: 'Username',
     password: 'Password',
     submit: 'Login',
@@ -34,42 +33,19 @@ export default {
   fileUpload: {
     title: 'File Upload',
     dragDrop: 'Drag and drop files here or click to upload',
-    selectFiles: 'Select Files',
     selectedFiles: 'Selected Files',
-    noFiles: 'No files selected',
-    fileCount: '{count} file(s)',
-    fileName: 'File Name',
-    fileSize: 'Size',
     remove: 'Remove',
-    clear: 'Clear All',
-    uploadError: 'Upload failed',
     invalidFormat: 'Supported formats: .xlsx, .docx, .pptx, .pdf, .txt, .md',
     uploading: 'Uploading...',
-    supportedFormats: 'Supported formats: Excel (.xlsx), Word (.docx), PowerPoint (.pptx), PDF (.pdf), Text (.txt), Markdown (.md)',
     uploadComplete: 'Upload Complete',
     uploadSuccess: 'Successfully uploaded {count} file(s){failed}',
     failed: 'failed'
   },
 
-  // Document Types
-  documentType: {
-    excel: 'Excel Spreadsheet',
-    word: 'Word Document',
-    powerpoint: 'PowerPoint Presentation',
-    pdf: 'PDF Document',
-    text: 'Text File',
-    markdown: 'Markdown Document',
-    unknown: 'Unknown Type'
-  },
-
   // Main Page - Language Pair
   languagePair: {
     title: 'Language Pair',
-    select: 'Select Language Pair',
-    source: 'Source Language',
-    target: 'Target Language',
-    noLanguagePairs: 'No language pairs configured. Please add them in settings.',
-    required: 'Please select a language pair'
+    select: 'Select Language Pair'
   },
 
   // Main Page - Translation
@@ -77,12 +53,6 @@ export default {
     title: 'Translation Dashboard',
     subtitle: 'Upload your documents and translate them instantly.',
     start: 'Start Translation',
-    starting: 'Starting...',
-    processing: 'Translating...',
-    selectFiles: 'Please select files first',
-    selectLanguagePair: 'Please select a language pair first',
-    error: 'Translation failed',
-    success: 'Translation completed',
     actionDescription: 'Ready to translate? Click below to start the process.',
     validationUpload: 'Please upload at least one file',
     validationLanguage: 'Please select a language pair'
@@ -95,7 +65,17 @@ export default {
     files: 'files',
     failedFiles: 'Failed Files',
     translationWarnings: 'Translation Warnings',
-    totalJobs: 'Total {count} jobs'
+    totalJobs: 'Total {count} jobs',
+    started: 'Translation Started',
+    startedDesc: 'Your files are now being translated.',
+    completed: 'Translation Complete',
+    completedDesc: '{filesCompleted} files translated successfully.',
+    completedWithWarnings: 'Translation Complete with Warnings',
+    completedWithWarningsDesc: '{filesCompleted} files translated, but {failedSegments} segments failed in {warningFiles} file(s).',
+    partialSuccess: 'Translation Partially Complete',
+    partialSuccessDesc: '{filesCompleted} files succeeded, {filesFailed} failed.',
+    failed: 'Translation Failed',
+    failedDesc: 'Please check the error details.'
   },
 
   // Progress Tracker
@@ -104,22 +84,9 @@ export default {
     overall: 'Overall Progress',
     currentFile: 'Current File',
     filesCompleted: 'files completed',
-    filesTotal: 'Total Files',
-    cellsTranslated: 'Cells Translated',
-    cellsTotal: 'Total Cells',
-    segmentsTranslated: 'Segments Translated',
-    segmentsTotal: 'Total Segments',
     segments: 'segments',
-    status: {
-      pending: 'Pending',
-      processing: 'Processing',
-      completed: 'Completed',
-      failed: 'Failed',
-      partial: 'Partial Success'
-    },
     errors: 'Errors',
     warnings: 'Warnings',
-    noErrors: 'No errors',
     jobTitle: 'Translation Job',
     loading: 'Loading job status...',
     noActiveJob: 'No active translation job',
@@ -129,39 +96,20 @@ export default {
 
   // File Download
   download: {
-    title: 'Download Files',
-    button: 'Download',
-    downloading: 'Downloading...',
-    success: 'Download successful',
-    error: 'Download failed',
-    noFiles: 'No files available for download'
+    button: 'Download'
   },
 
   // Settings Page
   settings: {
-    title: 'Settings',
     subtitle: 'Manage translation models and language configurations.',
     languagePairs: 'Language Pair Management',
     addLanguagePair: 'Add Language Pair',
-    removeLanguagePair: 'Remove',
     sourceLanguage: 'Source Language',
     targetLanguage: 'Target Language',
     sourceCode: 'Source Code',
     targetCode: 'Target Code',
-    save: 'Save',
-    saving: 'Saving...',
-    saved: 'Saved successfully',
-    cancel: 'Cancel',
-    reset: 'Reset',
     noLanguagePairs: 'No language pairs configured',
-    addSuccess: 'Added successfully',
-    addError: 'Failed to add',
-    removeSuccess: 'Removed successfully',
-    removeError: 'Failed to remove',
     uiLanguage: 'Interface Language',
-    chinese: '中文',
-    vietnamese: 'Tiếng Việt',
-    english: 'English',
     translationModel: 'Translation Model',
     selectModel: 'Select AI Model',
     currentModel: 'Current active model',
@@ -190,56 +138,26 @@ export default {
     updateModelError: 'Failed to update model'
   },
 
-  // Notifications
-  notification: {
-    success: 'Success',
-    error: 'Error',
-    warning: 'Warning',
-    info: 'Info'
-  },
-
   // Validation
   validation: {
     required: 'This field is required',
-    invalidFormat: 'Invalid format',
     tooLong: 'Input is too long',
-    tooShort: 'Input is too short',
-    duplicate: 'This item already exists'
+    tooShort: 'Input is too short'
   },
 
   // Common
   common: {
-    loading: 'Loading...',
-    confirm: 'Confirm',
     cancel: 'Cancel',
-    close: 'Close',
     save: 'Save',
     delete: 'Delete',
     edit: 'Edit',
     add: 'Add',
-    search: 'Search',
-    filter: 'Filter',
-    refresh: 'Refresh',
-    back: 'Back',
-    next: 'Next',
-    previous: 'Previous',
-    submit: 'Submit',
-    reset: 'Reset',
-    clear: 'Clear',
     yes: 'Yes',
     no: 'No',
     ok: 'OK',
-    bytes: 'bytes',
-    kb: 'KB',
-    mb: 'MB',
-    gb: 'GB',
     to: 'to',
     optional: 'Optional',
-    actions: 'Actions',
-    justNow: 'just now',
-    minutesAgo: ' minutes ago',
-    hoursAgo: ' hours ago',
-    daysAgo: ' days ago'
+    actions: 'Actions'
   },
 
   // Thesaurus
@@ -265,19 +183,14 @@ export default {
     termAdded: 'Term added successfully',
     termUpdated: 'Term updated successfully',
     exportSuccess: 'Export completed',
-    manageCatalogs: 'Manage Catalogs',
-    createCatalog: 'Create New Catalog',
-    catalogName: 'Name',
     catalogNamePlaceholder: 'e.g., IT Terms',
-    catalogDescription: 'Description',
-    catalogDescriptionPlaceholder: 'Optional description',
-    existingCatalogs: 'Existing Catalogs',
-    noCatalogs: 'No catalogs yet',
+    catalogs: 'Catalogs',
     confirmDeleteCatalog: 'Delete this catalog and all its terms?',
     catalogCreated: 'Catalog created successfully',
     catalogRenamed: 'Catalog renamed successfully',
     catalogDeleted: 'Catalog deleted',
-    terms: 'terms',
+    catalogDeletedTerms: '{count} terms were also deleted',
+    totalTerms: 'Total {total} terms',
     sourceTermPlaceholder: 'Enter source term',
     targetTermPlaceholder: 'Enter target term translation',
     sourceTermReadonly: 'Source term cannot be changed when editing',
@@ -298,7 +211,6 @@ export default {
     emptyFile: 'File is empty',
     insufficientColumns: 'Insufficient columns',
     emptyTerms: 'Empty source or target term',
-    selectCatalogs: 'Select Term Catalogs',
     catalogSelectorHelp: 'Select catalogs to use for translation. Drag to reorder priority.',
     noCatalogsAvailable: 'No catalogs available for this language pair',
     availableCatalogs: 'Available',
@@ -314,29 +226,13 @@ export default {
     label: 'Output Mode',
     tooltip: 'Choose how original and translated text are combined in the output document.',
     replace: 'Replace',
-    replaceDescription: 'Replace original text with translation',
     append: 'Append',
-    appendDescription: 'Append translation after original text',
-    interleaved: 'Interleaved',
-    interleavedDescription: 'Interleave original and translated lines'
+    interleaved: 'Interleaved'
   },
 
   // Error Messages
   error: {
-    network: 'Network error',
-    server: 'Server error',
-    unauthorized: 'Unauthorized. Please log in again.',
-    forbidden: 'Access denied',
-    notFound: 'Not found',
-    timeout: 'Request timeout',
     unknown: 'Unknown error',
-    // Document processing errors
-    passwordProtected: 'This file is password protected. Please remove the password and try again.',
-    corrupted: 'This file is corrupted or has an invalid format and cannot be read.',
-    scannedPdf: 'This PDF contains only scanned images. Please use OCR software to convert it first.',
-    emptyDocument: 'This document contains no translatable text.',
-    unsupportedFormat: 'Unsupported file format. Supported formats: .xlsx, .docx, .pptx, .pdf, .txt, .md',
-    processingFailed: 'Document processing failed: {reason}',
     // ErrorDisplay component
     retrying: 'Retrying...',
     retry: 'Retry',
@@ -366,8 +262,6 @@ export default {
     role: 'Role',
     status: 'Status',
     createdAt: 'Created',
-    lastLoginAt: 'Last Login',
-    neverLoggedIn: 'Never logged in',
     currentUser: 'Current User',
     noUsers: 'No users yet',
     unlock: 'Unlock',
@@ -398,9 +292,7 @@ export default {
       DELETED: 'Deleted'
     },
     errors: {
-      userAlreadyExists: 'Username already exists',
-      cannotDeleteSelf: 'Cannot delete yourself',
-      cannotChangeOwnRole: 'Cannot change your own role'
+      userAlreadyExists: 'Username already exists'
     }
   },
 

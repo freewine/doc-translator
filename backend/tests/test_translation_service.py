@@ -242,6 +242,66 @@ class TestJSONBatchFormatting:
         assert result is None
 
 
+class TestJSONRepair:
+    """Tests for JSON repair of malformed LLM batch responses."""
+
+    def test_repair_trailing_comma(self, mock_bedrock_client):
+        service = TranslationService()
+        text = '[{"index": 0, "translation": "Xin chào"},]'
+        result = service._repair_json(text)
+        assert result is not None
+        assert json.loads(result) == [{"index": 0, "translation": "Xin chào"}]
+
+    def test_repair_trailing_comma_in_batch_response(self, mock_bedrock_client):
+        service = TranslationService()
+        response = '[{"index": 0, "translation": "Xin chào"}, {"index": 1, "translation": "Thế giới"},]'
+        result = service._parse_batch_response(response, expected_count=2)
+        assert result is not None
+        assert result[0] == "Xin chào"
+        assert result[1] == "Thế giới"
+
+    def test_repair_truncated_response(self, mock_bedrock_client):
+        service = TranslationService()
+        text = '[{"index": 0, "translation": "Xin chào"}, {"index": 1, "translation": "Thế giới"}, {"index": 2, "translat'
+        result = service._repair_json(text)
+        assert result is not None
+        parsed = json.loads(result)
+        assert len(parsed) == 2
+
+    def test_repair_truncated_in_batch_response(self, mock_bedrock_client):
+        """Truncated response repairs to fewer items than expected, so batch parsing returns None (count mismatch)."""
+        service = TranslationService()
+        response = '[{"index": 0, "translation": "Xin chào"}, {"index": 1, "translat'
+        result = service._parse_batch_response(response, expected_count=2)
+        assert result is None
+
+    def test_repair_truncated_matches_expected(self, mock_bedrock_client):
+        """Truncated response where complete items match expected count."""
+        service = TranslationService()
+        response = '[{"index": 0, "translation": "Xin chào"}, {"index": 1, "translation": "Thế giới"}, {"index": 2, "tr'
+        result = service._parse_batch_response(response, expected_count=2)
+        assert result is not None
+        assert result[0] == "Xin chào"
+        assert result[1] == "Thế giới"
+
+    def test_repair_valid_json_passthrough(self, mock_bedrock_client):
+        service = TranslationService()
+        text = '[{"index": 0, "translation": "Xin chào"}]'
+        result = service._repair_json(text)
+        assert result is not None
+        assert json.loads(result) == [{"index": 0, "translation": "Xin chào"}]
+
+    def test_repair_unrepairable_returns_none(self, mock_bedrock_client):
+        service = TranslationService()
+        result = service._repair_json('completely broken garbage')
+        assert result is None
+
+    def test_repair_unrepairable_in_batch_response(self, mock_bedrock_client):
+        service = TranslationService()
+        result = service._parse_batch_response('completely broken garbage', expected_count=1)
+        assert result is None
+
+
 class TestTranslationServiceInitialization:
     """Tests for TranslationService initialization."""
 

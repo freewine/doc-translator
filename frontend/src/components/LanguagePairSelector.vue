@@ -11,7 +11,7 @@
         :placeholder="t('languagePair.select')"
         :loading="loading"
         :disabled="disabled || loading"
-        size="large"
+        size="middle"
         @change="handleChange"
         style="width: 100%"
       >
@@ -172,6 +172,7 @@ defineExpose({
   display: flex;
   align-items: center;
   line-height: 1;
+  font-size: 14px;
 }
 
 .language-pair-option {
@@ -232,19 +233,19 @@ defineExpose({
 /* Tablet layout (768px - 1024px) */
 @media (min-width: 768px) and (max-width: 1024px) {
   .language-pair-option {
-    font-size: 14px;
+    font-size: 13px;
   }
 
   .source-language,
   .target-language {
-    font-size: 14px;
+    font-size: 13px;
   }
 }
 
 /* Desktop layout (> 1024px) */
 @media (min-width: 1025px) {
   .language-pair-option {
-    font-size: 15px;
+    font-size: 14px;
   }
 }
 

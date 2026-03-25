@@ -612,22 +612,256 @@ class TestPDFProcessorCalculateOutputRect:
         assert font_size >= 6.0
 
 
+class TestPDFProcessorFontResolution:
+    """Tests for font family and style resolution."""
+
+    def test_resolve_font_sans_serif_default(self):
+        """Default font should be Helvetica (sans-serif)."""
+        processor = PDFProcessor()
+        font, css_family, css_extra = processor._resolve_font("ArialMT", 0)
+        assert css_family == "sans-serif"
+        assert "bold" not in css_extra
+        assert "italic" not in css_extra
+
+    def test_resolve_font_serif(self):
+        """Font with serif keyword should resolve to serif family."""
+        processor = PDFProcessor()
+        font, css_family, _ = processor._resolve_font("TimesNewRomanPSMT", 0)
+        assert css_family == "serif"
+
+    def test_resolve_font_serif_via_flag(self):
+        """Font with serif flag (bit 2) should resolve to serif."""
+        processor = PDFProcessor()
+        font, css_family, _ = processor._resolve_font("SomeFont", 1 << 2)
+        assert css_family == "serif"
+
+    def test_resolve_font_monospace(self):
+        """Font with monospace keyword should resolve to monospace family."""
+        processor = PDFProcessor()
+        font, css_family, _ = processor._resolve_font("CourierNew", 0)
+        assert css_family == "monospace"
+
+    def test_resolve_font_monospace_via_flag(self):
+        """Font with monospace flag (bit 3) should resolve to monospace."""
+        processor = PDFProcessor()
+        font, css_family, _ = processor._resolve_font("SomeFont", 1 << 3)
+        assert css_family == "monospace"
+
+    def test_resolve_font_bold(self):
+        """Bold flag (bit 4) should produce bold CSS."""
+        processor = PDFProcessor()
+        _, _, css_extra = processor._resolve_font("Helvetica-Bold", 1 << 4)
+        assert "font-weight: bold" in css_extra
+
+    def test_resolve_font_italic(self):
+        """Italic flag (bit 1) should produce italic CSS."""
+        processor = PDFProcessor()
+        _, _, css_extra = processor._resolve_font("Helvetica-Oblique", 1 << 1)
+        assert "font-style: italic" in css_extra
+
+    def test_resolve_font_bold_italic(self):
+        """Both bold and italic flags should produce both CSS."""
+        processor = PDFProcessor()
+        flags = (1 << 4) | (1 << 1)
+        _, _, css_extra = processor._resolve_font("Helvetica-BoldOblique", flags)
+        assert "font-weight: bold" in css_extra
+        assert "font-style: italic" in css_extra
+
+
+class TestPDFProcessorBackgroundDetection:
+    """Tests for adaptive background color detection."""
+
+    @pytest.mark.asyncio
+    async def test_detect_background_white_page(self):
+        """White page should detect white background."""
+        processor = PDFProcessor()
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            doc = fitz.open()
+            page = doc.new_page()
+            page.insert_text((100, 100), "Test", fontsize=12)
+            doc.save(f.name)
+            doc.close()
+            file_path = Path(f.name)
+
+        try:
+            doc = fitz.open(str(file_path))
+            page = doc[0]
+            bg = processor._detect_background_color(page, 0)
+            doc.close()
+            # White page should give near-white values
+            assert bg[0] >= 0.95
+            assert bg[1] >= 0.95
+            assert bg[2] >= 0.95
+        finally:
+            file_path.unlink()
+
+    @pytest.mark.asyncio
+    async def test_detect_background_colored_page(self):
+        """Page with colored rectangle should detect that color."""
+        processor = PDFProcessor()
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            doc = fitz.open()
+            page = doc.new_page()
+            # Fill page with a light blue background
+            page.draw_rect(page.rect, color=None, fill=(0.8, 0.9, 1.0))
+            page.insert_text((100, 100), "Test", fontsize=12)
+            doc.save(f.name)
+            doc.close()
+            file_path = Path(f.name)
+
+        try:
+            doc = fitz.open(str(file_path))
+            page = doc[0]
+            bg = processor._detect_background_color(page, 0)
+            doc.close()
+            # Should detect the blue-ish background, not white
+            assert bg[2] > bg[0]  # Blue component should be higher than red
+        finally:
+            file_path.unlink()
+
+    def test_background_color_caching(self):
+        """Background color should be cached per page."""
+        processor = PDFProcessor()
+        processor._page_bg_cache[0] = (0.5, 0.5, 0.5)
+        doc = fitz.open()
+        page = doc.new_page()
+        bg = processor._detect_background_color(page, 0)
+        doc.close()
+        assert bg == (0.5, 0.5, 0.5)
+
+
+class TestPDFProcessorSpanDistribution:
+    """Tests for text distribution across spans."""
+
+    def test_single_span(self):
+        """Single span should return all text."""
+        processor = PDFProcessor()
+        spans = [{"text": "Hello"}]
+        result = processor._distribute_text_to_spans(spans, "Bonjour")
+        assert result == ["Bonjour"]
+
+    def test_two_equal_spans(self):
+        """Two equal-length spans should split roughly in half."""
+        processor = PDFProcessor()
+        spans = [{"text": "Hello"}, {"text": "World"}]
+        result = processor._distribute_text_to_spans(spans, "Bonjour le Monde")
+        assert len(result) == 2
+        # All words should be present across the two portions
+        full = " ".join(result)
+        assert "Bonjour" in full
+        assert "Monde" in full
+
+    def test_last_span_gets_remainder(self):
+        """Last span should get all remaining words."""
+        processor = PDFProcessor()
+        spans = [{"text": "A"}, {"text": "BBBBB"}]
+        result = processor._distribute_text_to_spans(spans, "one two three four")
+        assert len(result) == 2
+        # Second span (longer original) should get more words
+        assert " ".join(result) == "one two three four"
+
+
+class TestPDFProcessorBuildSpanHtml:
+    """Tests for HTML generation with per-span formatting."""
+
+    def test_build_span_html_single_span(self):
+        """Single span should produce one HTML span element."""
+        processor = PDFProcessor()
+        spans = [{"text": "Hello", "font": "Helvetica", "flags": 0, "size": 12, "color": 0}]
+        html = processor._build_span_html(spans, "Bonjour")
+        assert "<span style=" in html
+        assert "Bonjour" in html
+
+    def test_build_span_html_bold_italic(self):
+        """Bold+italic span should have corresponding CSS."""
+        processor = PDFProcessor()
+        flags = (1 << 4) | (1 << 1)  # bold + italic
+        spans = [{"text": "Hello", "font": "Helvetica", "flags": flags, "size": 14, "color": 0}]
+        html = processor._build_span_html(spans, "Bonjour")
+        assert "font-weight: bold" in html
+        assert "font-style: italic" in html
+
+    def test_build_span_html_multi_span(self):
+        """Multi-span line should produce multiple HTML spans."""
+        processor = PDFProcessor()
+        spans = [
+            {"text": "Bold", "font": "Helvetica-Bold", "flags": (1 << 4), "size": 12, "color": 0},
+            {"text": " Normal", "font": "Helvetica", "flags": 0, "size": 12, "color": 0},
+        ]
+        html = processor._build_span_html(spans, "Gras Normal")
+        assert html.count("<span style=") == 2
+        assert "font-weight: bold" in html
+
+    def test_build_span_html_escapes_special_chars(self):
+        """Special HTML characters should be escaped."""
+        processor = PDFProcessor()
+        spans = [{"text": "test", "font": "Helvetica", "flags": 0, "size": 12, "color": 0}]
+        html = processor._build_span_html(spans, "a < b & c > d")
+        assert "&lt;" in html
+        assert "&amp;" in html
+        assert "&gt;" in html
+
+
+class TestPDFProcessorWriteWithFormatPreservation:
+    """Tests for end-to-end write with format preservation."""
+
+    @pytest.mark.asyncio
+    async def test_write_translated_preserves_bold(self):
+        """Bold text should remain bold after translation."""
+        processor = PDFProcessor()
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            doc = fitz.open()
+            page = doc.new_page()
+            # Insert bold text using a bold font
+            page.insert_text(
+                (100, 100), "Bold Text", fontsize=14,
+                fontname="hebo",  # Helvetica Bold
+            )
+            doc.save(f.name)
+            doc.close()
+            input_path = Path(f.name)
+
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+            output_path = Path(f.name)
+
+        try:
+            segments = await processor.extract_text(input_path)
+            translations = ["Texte Gras" for _ in segments]
+
+            success = await processor.write_translated(
+                input_path, segments, translations, output_path
+            )
+
+            assert success is True
+            doc = fitz.open(str(output_path))
+            text = doc[0].get_text("text")
+            doc.close()
+            assert "Texte Gras" in text
+        finally:
+            input_path.unlink()
+            if output_path.exists():
+                output_path.unlink()
+
+
 class TestPDFProcessorColorConversion:
     """Tests for PDFProcessor color conversion utilities."""
-    
+
     def test_int_to_rgb_black(self):
         """Test converting black color."""
         processor = PDFProcessor()
         rgb = processor._int_to_rgb(0)
         assert rgb == (0, 0, 0)
-    
+
     def test_int_to_rgb_white(self):
         """Test converting white color."""
         processor = PDFProcessor()
         # White in BGR format: 0xFFFFFF
         rgb = processor._int_to_rgb(0xFFFFFF)
         assert rgb == (1.0, 1.0, 1.0)
-    
+
     def test_int_to_rgb_red(self):
         """Test converting red color."""
         processor = PDFProcessor()

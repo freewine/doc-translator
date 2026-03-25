@@ -25,13 +25,13 @@
           </a-card>
         </a-col>
 
-        <!-- Language Pair and Term Catalogs - Side by side on larger screens -->
+        <!-- Language Pair + Term Catalogs (merged) and Start Translation - Side by side -->
         <a-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
           <a-card :bordered="false" class="section-card glass-card">
             <template #title>
               <div class="card-header">
                 <GlobalOutlined class="header-icon" />
-                <span>{{ t('languagePair.title') }}</span>
+                <span>{{ t('thesaurus.languageAndCatalog', 'Language & Catalog') }}</span>
               </div>
             </template>
             <LanguagePairSelector
@@ -40,31 +40,30 @@
               @change="handleLanguagePairChange"
               @error="handleLanguagePairError"
             />
-          </a-card>
-        </a-col>
 
-        <a-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-          <a-card :bordered="false" class="section-card glass-card" :class="{ 'disabled-card': !selectedLanguagePairId }">
-            <template #title>
-              <div class="card-header">
-                <BookOutlined class="header-icon" />
+            <!-- Term Catalogs sub-section -->
+            <div class="term-catalogs-section">
+              <div class="sub-section-header">
                 <span>{{ t('thesaurus.termCatalogs', 'Term Catalogs') }}</span>
+                <a-tooltip :title="t('thesaurus.catalogSelectorHelp', 'Select catalogs to use for translation. Drag to reorder priority.')">
+                  <QuestionCircleOutlined class="help-icon" />
+                </a-tooltip>
                 <span class="optional-badge">{{ t('common.optional', 'Optional') }}</span>
               </div>
-            </template>
-            <div v-if="!selectedLanguagePairId" class="placeholder-content">
-              <a-empty :description="t('thesaurus.selectLanguagePairFirst', 'Select a language pair first')" :image="false" />
+              <div v-if="!selectedLanguagePairId" class="placeholder-content">
+                <a-empty :description="t('thesaurus.selectLanguagePairFirst', 'Select a language pair first')" :image="false" />
+              </div>
+              <CatalogSelector
+                v-else
+                v-model="selectedCatalogIds"
+                :language-pair-id="selectedLanguagePairId"
+              />
             </div>
-            <CatalogSelector
-              v-else
-              v-model="selectedCatalogIds"
-              :language-pair-id="selectedLanguagePairId"
-            />
           </a-card>
         </a-col>
 
-        <!-- Start Translation - Full width after the two cards above -->
-        <a-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
+        <!-- Start Translation -->
+        <a-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
           <a-card :bordered="false" class="section-card glass-card action-card">
             <template #title>
               <div class="card-header">
@@ -266,7 +265,6 @@ import {
   ThunderboltOutlined,
   HistoryOutlined,
   SyncOutlined,
-  BookOutlined,
   QuestionCircleOutlined
 } from '@ant-design/icons-vue'
 import type { TranslationJob, FileUpload, LanguagePair, DocumentType, OutputMode } from '@/types'
@@ -406,8 +404,8 @@ async function handleStartTranslation() {
 
         // Show success message
         errorHandler.showSuccess(
-          'Translation Job Started',
-          `Job ${job.id} has been created and is now processing`
+          t('job.started'),
+          t('job.startedDesc')
         )
       }
     }, 'createJob')
@@ -426,24 +424,24 @@ function handleJobComplete(job: TranslationJob) {
     if (warnings.length > 0) {
       const totalFailed = warnings.reduce((sum, f) => sum + (f.segmentsFailed ?? 0), 0)
       errorHandler.showWarning(
-        'Translation Complete with Warnings',
-        `Job ${job.id} completed. ${job.filesCompleted} files translated, but ${totalFailed} segments could not be translated in ${warnings.length} file(s).`
+        t('job.completedWithWarnings'),
+        t('job.completedWithWarningsDesc', { filesCompleted: job.filesCompleted, failedSegments: totalFailed, warningFiles: warnings.length })
       )
     } else {
       errorHandler.showSuccess(
-        'Translation Complete',
-        `Job ${job.id} completed successfully. ${job.filesCompleted} files translated.`
+        t('job.completed'),
+        t('job.completedDesc', { filesCompleted: job.filesCompleted })
       )
     }
   } else if (job.status === 'PARTIAL_SUCCESS') {
     errorHandler.showWarning(
-      'Translation Partially Complete',
-      `Job ${job.id} completed with some errors. ${job.filesCompleted} files succeeded, ${job.filesFailed.length} failed.`
+      t('job.partialSuccess'),
+      t('job.partialSuccessDesc', { filesCompleted: job.filesCompleted, filesFailed: job.filesFailed.length })
     )
   } else if (job.status === 'FAILED') {
     errorHandler.handleError(
-      `Job ${job.id} failed. Please check the error details.`,
-      'Translation Job'
+      t('job.failedDesc'),
+      t('job.failed')
     )
   }
 
@@ -865,13 +863,24 @@ function getDocumentIconColor(documentType?: DocumentType): string {
   }
 }
 
-/* Disabled card state */
-.disabled-card {
-  opacity: 0.7;
+/* Term Catalogs sub-section */
+.term-catalogs-section {
+  margin-top: 20px;
 }
 
-.disabled-card .card-header {
-  color: var(--text-secondary);
+.sub-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 12px;
+}
+
+.sub-header-icon {
+  color: var(--primary-color);
+  font-size: 16px;
 }
 
 .placeholder-content {
