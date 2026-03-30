@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import boto3
 from botocore.exceptions import ClientError
 
+from src.models.user import UserStatus
+
 logger = logging.getLogger(__name__)
 
 
@@ -1273,16 +1275,16 @@ class DynamoDBRepository:
     
     def _user_exists(self, username: str) -> bool:
         """
-        Check if a username exists.
-        
+        Check if an active (non-deleted) username exists.
+
         Args:
             username: The username to check.
-            
+
         Returns:
-            True if user exists, False otherwise.
+            True if an active user exists, False otherwise.
         """
         user = self._get_user(username)
-        return user is not None
+        return user is not None and user.get("status") != UserStatus.DELETED.value
     
     async def user_exists(self, username: str) -> bool:
         """

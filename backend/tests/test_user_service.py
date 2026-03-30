@@ -56,7 +56,7 @@ class TestUserService:
         repo = MagicMock()
         repo.user_exists = AsyncMock(return_value=False)
         repo.create_user = AsyncMock()
-        repo.get_user = AsyncMock()
+        repo.get_user = AsyncMock(return_value=None)
         repo.get_users = AsyncMock(return_value=[])
         repo.update_user = AsyncMock()
         repo.count_active_admins = AsyncMock(return_value=2)
@@ -132,8 +132,11 @@ class TestUserService:
     
     async def test_create_user_already_exists(self, user_service, mock_repository):
         """Test creating user that already exists."""
-        mock_repository.user_exists.return_value = True
-        
+        mock_repository.get_user.return_value = {
+            "username": "existinguser",
+            "status": "active",
+        }
+
         with pytest.raises(UserAlreadyExistsError):
             await user_service.create_user("existinguser", "password")
     

@@ -165,13 +165,30 @@ class UserService:
             raise ValidationError(error)
         
         # Check if user already exists
-        if await self.repository.user_exists(username):
+        existing = await self.repository.get_user(username)
+        if existing and existing.get("status") != UserStatus.DELETED.value:
             raise UserAlreadyExistsError(f"User '{username}' already exists")
-        
+
         # Hash password
         password_hash = PasswordService.hash_password(password)
-        
-        # Create user data
+
+        if existing and existing.get("status") == UserStatus.DELETED.value:
+            # Overwrite the soft-deleted record
+            stored_data = await self.repository.update_user(
+                username,
+                password_hash=password_hash,
+                role=role,
+                status=UserStatus.PENDING_PASSWORD.value,
+                must_change_password=True,
+                failed_login_count=0,
+                deleted_at=None,
+            )
+            if not stored_data:
+                raise UserAlreadyExistsError(f"Failed to recreate user '{username}'")
+            logger.info(f"Recreated user '{username}' (was soft-deleted) with role '{role}'")
+            return User.from_dict(stored_data)
+
+        # Create new user
         user_data = {
             "username": username,
             "password_hash": password_hash,
@@ -180,8 +197,7 @@ class UserService:
             "must_change_password": True,
             "failed_login_count": 0,
         }
-        
-        # Store in DynamoDB
+
         try:
             stored_data = await self.repository.create_user(user_data)
             logger.info(f"Created user '{username}' with role '{role}'")
