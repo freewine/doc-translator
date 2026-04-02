@@ -1,7 +1,7 @@
 """
 Tests for the file download endpoint.
 
-The download endpoint returns a presigned S3 URL for direct browser download.
+The download endpoint streams file content directly from S3 through the backend.
 """
 import pytest
 import sys
@@ -54,8 +54,8 @@ def client():
 
         # Mock S3 file storage
         mock_s3_instance = Mock()
-        mock_s3_instance.generate_output_download_url = AsyncMock(
-            return_value="https://s3.amazonaws.com/test-bucket/fake-presigned-url"
+        mock_s3_instance.get_output = AsyncMock(
+            return_value=b"fake file content"
         )
         mock_s3_storage.return_value = mock_s3_instance
 
@@ -81,7 +81,7 @@ def auth_token():
 
 
 def test_download_file_success(client, auth_token):
-    """Test successful file download returns presigned URL."""
+    """Test successful file download streams file content."""
     job_id = "test-job-123"
     filename = "test_file_vi.xlsx"
 
@@ -91,12 +91,12 @@ def test_download_file_success(client, auth_token):
     )
 
     assert response.status_code == 200
-    data = response.json()
-    assert "url" in data
-    assert "fake-presigned-url" in data["url"]
+    assert response.content == b"fake file content"
+    assert "attachment" in response.headers["content-disposition"]
+    assert "test_file_vi.xlsx" in response.headers["content-disposition"]
 
-    # Verify S3 generate_output_download_url was called with correct args
-    main.app_context.s3_file_storage.generate_output_download_url.assert_called_once_with(
+    # Verify S3 get_output was called with correct args
+    main.app_context.s3_file_storage.get_output.assert_called_once_with(
         user_id="testuser",
         job_id=job_id,
         filename=filename,
@@ -149,9 +149,22 @@ def test_download_file_missing_params(client, auth_token):
 
 def test_download_file_s3_error(client, auth_token):
     """Test download when S3 returns an error."""
-    main.app_context.s3_file_storage.generate_output_download_url = AsyncMock(
+    main.app_context.s3_file_storage.get_output = AsyncMock(
         side_effect=Exception("S3 service unavailable")
     )
+
+    response = client.get(
+        "/api/download?job_id=test-job&filename=test.xlsx",
+        headers={"Authorization": f"Bearer {auth_token}"}
+    )
+
+    assert response.status_code == 404
+    assert "File not found or access denied" in response.json()["error"]
+
+
+def test_download_file_not_found(client, auth_token):
+    """Test download when file does not exist in S3."""
+    main.app_context.s3_file_storage.get_output = AsyncMock(return_value=None)
 
     response = client.get(
         "/api/download?job_id=test-job&filename=test.xlsx",
@@ -165,8 +178,8 @@ def test_download_file_s3_error(client, auth_token):
 def test_download_file_uses_username_from_token(client, auth_token):
     """Test that download uses username from JWT token for S3 path."""
     # Reset the mock to track calls
-    main.app_context.s3_file_storage.generate_output_download_url = AsyncMock(
-        return_value="https://s3.amazonaws.com/test-bucket/presigned"
+    main.app_context.s3_file_storage.get_output = AsyncMock(
+        return_value=b"document content"
     )
 
     job_id = "job-456"
@@ -179,9 +192,22 @@ def test_download_file_uses_username_from_token(client, auth_token):
 
     assert response.status_code == 200
 
-    # Verify generate_output_download_url was called with the username from the token
-    main.app_context.s3_file_storage.generate_output_download_url.assert_called_once_with(
+    # Verify get_output was called with the username from the token
+    main.app_context.s3_file_storage.get_output.assert_called_once_with(
         user_id="testuser",
         job_id=job_id,
         filename=filename,
     )
+
+
+def test_download_file_content_type(client, auth_token):
+    """Test that download sets correct content type based on file extension."""
+    main.app_context.s3_file_storage.get_output = AsyncMock(return_value=b"pdf content")
+
+    response = client.get(
+        "/api/download?job_id=test-job&filename=report.pdf",
+        headers={"Authorization": f"Bearer {auth_token}"}
+    )
+
+    assert response.status_code == 200
+    assert "application/pdf" in response.headers["content-type"]

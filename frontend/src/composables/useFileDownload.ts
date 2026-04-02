@@ -26,16 +26,19 @@ export function useFileDownload() {
     downloads.value.set(key, { filename, isDownloading: true, error: null })
 
     try {
-      // Get presigned S3 URL (fast, no file transfer through backend)
-      const presignedUrl = await api.getDownloadUrl(jobId, filename)
+      // Download file content as blob via backend (works on private networks)
+      const blobUrl = await api.downloadFile(jobId, filename)
 
-      // Trigger browser download via presigned URL
+      // Trigger browser download via blob URL
       const link = document.createElement('a')
-      link.href = presignedUrl
+      link.href = blobUrl
       link.download = filename
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+
+      // Free the blob URL memory
+      URL.revokeObjectURL(blobUrl)
 
       downloads.value.set(key, { filename, isDownloading: false, error: null })
     } catch (error) {

@@ -1,12 +1,15 @@
 """Main entry point for the Doc Translation Backend API."""
 
+import io
 import os
 import re
 import logging
+import mimetypes
 import secrets
 import tempfile
 from pathlib import Path
 from typing import Any, Dict
+from urllib.parse import quote
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -16,7 +19,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route, Mount
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from src.graphql.schema import schema
 from src.graphql.resolvers import ResolverContext
@@ -445,19 +448,34 @@ async def download_file(request: Request) -> Response:
         )
 
     try:
-        # Generate a presigned S3 URL for direct browser download
-        presigned_url = await app_context.s3_file_storage.generate_output_download_url(
+        # Fetch file content from S3 and stream it directly to the client.
+        # This avoids presigned URLs that require direct S3 access, which
+        # doesn't work for users on private networks via internal ALB.
+        file_content = await app_context.s3_file_storage.get_output(
             user_id=username,
             job_id=job_id,
             filename=filename,
         )
 
-        logger.info(f"Generated download URL: job_id={job_id}, filename={filename}, user={username}")
+        if file_content is None:
+            return JSONResponse(
+                {"error": "File not found or access denied"},
+                status_code=404,
+            )
 
-        return JSONResponse({"url": presigned_url})
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        disposition = f"attachment; filename*=UTF-8''{quote(filename)}"
+
+        logger.info(f"Streaming download: job_id={job_id}, filename={filename}, user={username}")
+
+        return StreamingResponse(
+            io.BytesIO(file_content),
+            media_type=content_type,
+            headers={"Content-Disposition": disposition},
+        )
 
     except Exception as e:
-        logger.error(f"Error generating download URL: {e}", exc_info=True)
+        logger.error(f"Error downloading file: {e}", exc_info=True)
         return JSONResponse(
             {"error": "File not found or access denied"},
             status_code=404

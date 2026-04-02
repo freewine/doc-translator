@@ -1,9 +1,9 @@
-"""Property-based tests for download endpoint presigned URL generation.
+"""Property-based tests for download endpoint file streaming.
 
-This module tests that the download endpoint returns presigned S3 URLs
-for direct browser download.
+This module tests that the download endpoint streams file content
+directly from S3 through the backend.
 
-**Property 3: Download Endpoint Returns Presigned URL**
+**Property 3: Download Endpoint Streams File Content**
 **Validates: Requirements 5.1**
 """
 
@@ -112,8 +112,8 @@ def valid_download_request_strategy(draw):
     }
 
 
-class TestDownloadEndpointPresignedUrl:
-    """Property-based tests for download endpoint presigned URL generation."""
+class TestDownloadEndpointFileStreaming:
+    """Property-based tests for download endpoint file streaming."""
 
     @pytest.fixture
     def mock_app_context(self):
@@ -122,8 +122,8 @@ class TestDownloadEndpointPresignedUrl:
 
         # Create mock S3 file storage
         mock_s3_storage = AsyncMock()
-        mock_s3_storage.generate_output_download_url = AsyncMock(
-            return_value="https://s3.amazonaws.com/test-bucket/presigned-url"
+        mock_s3_storage.get_output = AsyncMock(
+            return_value=b"test file content"
         )
 
         # Create mock auth service
@@ -148,14 +148,14 @@ class TestDownloadEndpointPresignedUrl:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         deadline=None  # Disable deadline for async operations
     )
-    def test_property_3_download_returns_presigned_url(self, download_request, mock_app_context):
+    def test_property_3_download_streams_file_content(self, download_request, mock_app_context):
         """
         **Validates: Requirements 5.1**
 
-        Property 3: Download Endpoint Returns Presigned URL
+        Property 3: Download Endpoint Streams File Content
 
         For any valid file download request with proper authentication,
-        the endpoint should return a JSON response with a presigned S3 URL.
+        the endpoint should stream the file content directly.
         """
         import main
         from main import app
@@ -170,7 +170,7 @@ class TestDownloadEndpointPresignedUrl:
         )
 
         # Reset the mock to track calls
-        mock_app_context.s3_file_storage.generate_output_download_url.reset_mock()
+        mock_app_context.s3_file_storage.get_output.reset_mock()
 
         # Set the global app_context
         original_context = main.app_context
@@ -189,10 +189,9 @@ class TestDownloadEndpointPresignedUrl:
             # Verify the response is successful
             assert response.status_code == 200, f"Download failed: {response.text}"
 
-            # Verify response is JSON with presigned URL
-            data = response.json()
-            assert "url" in data, "Response should contain 'url' field"
-            assert "presigned-url" in data["url"]
+            # Verify response contains file content
+            assert response.content == b"test file content"
+            assert "attachment" in response.headers.get("content-disposition", "")
 
         finally:
             # Restore original context
@@ -208,9 +207,9 @@ class TestDownloadEndpointPresignedUrl:
         """
         **Validates: Requirements 5.1**
 
-        Property 3: Download Endpoint Returns Presigned URL (S3 args variant)
+        Property 3: Download Endpoint Streams File Content (S3 args variant)
 
-        Verifies that S3 generate_output_download_url is called with the correct
+        Verifies that S3 get_output is called with the correct
         user_id, job_id, and filename arguments.
         """
         import main
@@ -224,7 +223,7 @@ class TestDownloadEndpointPresignedUrl:
         mock_app_context.auth_service.verify_token = Mock(
             return_value={"sub": username, "username": username}
         )
-        mock_app_context.s3_file_storage.generate_output_download_url.reset_mock()
+        mock_app_context.s3_file_storage.get_output.reset_mock()
 
         original_context = main.app_context
         main.app_context = mock_app_context
@@ -239,13 +238,13 @@ class TestDownloadEndpointPresignedUrl:
 
             assert response.status_code == 200, f"Download failed: {response.text}"
 
-            # Verify S3 generate_output_download_url was called
-            assert mock_app_context.s3_file_storage.generate_output_download_url.called, (
-                "S3 generate_output_download_url should be called for downloads"
+            # Verify S3 get_output was called
+            assert mock_app_context.s3_file_storage.get_output.called, (
+                "S3 get_output should be called for downloads"
             )
 
             # Get the call arguments
-            call_args = mock_app_context.s3_file_storage.generate_output_download_url.call_args
+            call_args = mock_app_context.s3_file_storage.get_output.call_args
 
             # Verify correct arguments
             assert call_args.kwargs.get("user_id") == username, (
@@ -267,14 +266,14 @@ class TestDownloadEndpointPresignedUrl:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         deadline=None
     )
-    def test_property_3_response_is_json_with_url(self, download_request, mock_app_context):
+    def test_property_3_response_has_content_disposition(self, download_request, mock_app_context):
         """
         **Validates: Requirements 5.1, 5.2**
 
-        Property 3: Download Endpoint Returns Presigned URL (format variant)
+        Property 3: Download Endpoint Streams File Content (format variant)
 
-        Verifies that the download endpoint returns a JSON response
-        with a presigned URL for direct S3 download.
+        Verifies that the download endpoint returns a streaming response
+        with Content-Disposition header for browser download.
         """
         import main
         from main import app
@@ -286,7 +285,7 @@ class TestDownloadEndpointPresignedUrl:
         mock_app_context.auth_service.verify_token = Mock(
             return_value={"sub": username, "username": username}
         )
-        mock_app_context.s3_file_storage.generate_output_download_url.reset_mock()
+        mock_app_context.s3_file_storage.get_output.reset_mock()
 
         original_context = main.app_context
         main.app_context = mock_app_context
@@ -302,13 +301,12 @@ class TestDownloadEndpointPresignedUrl:
             # Should return 200
             assert response.status_code == 200, f"Download failed: {response.text}"
 
-            # Response should be JSON with a URL
+            # Response should have Content-Disposition attachment header
+            content_disposition = response.headers.get("content-disposition", "")
+            assert "attachment" in content_disposition
+            # Content type should not be JSON (we're streaming file content now)
             content_type = response.headers.get("content-type", "")
-            assert "application/json" in content_type
-            data = response.json()
-            assert "url" in data
-            assert isinstance(data["url"], str)
-            assert len(data["url"]) > 0
+            assert "application/json" not in content_type
 
         finally:
             main.app_context = original_context
@@ -327,10 +325,10 @@ class TestDownloadEndpointPresignedUrl:
         """
         **Validates: Requirements 5.1**
 
-        Property 3: Download Endpoint Returns Presigned URL (auth variant)
+        Property 3: Download Endpoint Streams File Content (auth variant)
 
         Verifies that the download endpoint uses the username from the
-        JWT token to generate the presigned URL, ensuring user isolation.
+        JWT token to fetch the file, ensuring user isolation.
         """
         import main
         from main import app
@@ -339,7 +337,7 @@ class TestDownloadEndpointPresignedUrl:
         mock_app_context.auth_service.verify_token = Mock(
             return_value={"sub": username, "username": username}
         )
-        mock_app_context.s3_file_storage.generate_output_download_url.reset_mock()
+        mock_app_context.s3_file_storage.get_output.reset_mock()
 
         original_context = main.app_context
         main.app_context = mock_app_context
@@ -354,8 +352,8 @@ class TestDownloadEndpointPresignedUrl:
 
             assert response.status_code == 200
 
-            # Verify generate_output_download_url was called with the username from the token
-            call_args = mock_app_context.s3_file_storage.generate_output_download_url.call_args
+            # Verify get_output was called with the username from the token
+            call_args = mock_app_context.s3_file_storage.get_output.call_args
             assert call_args.kwargs.get("user_id") == username, (
                 f"user_id should be '{username}', got '{call_args.kwargs.get('user_id')}'"
             )
@@ -369,12 +367,12 @@ class TestDownloadEndpointS3Errors:
 
     @pytest.fixture
     def mock_app_context_with_s3_error(self):
-        """Create a mock app context where S3 presigned URL generation fails."""
+        """Create a mock app context where S3 get_output fails."""
         import main
 
         # Create mock S3 file storage that raises an error
         mock_s3_storage = AsyncMock()
-        mock_s3_storage.generate_output_download_url = AsyncMock(
+        mock_s3_storage.get_output = AsyncMock(
             side_effect=Exception("NoSuchKey: The specified key does not exist")
         )
 

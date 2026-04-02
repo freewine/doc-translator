@@ -6,9 +6,11 @@
 
 export const api = {
   /**
-   * Download a translated file from the server.
+   * Download a translated file from the server as a blob.
+   * The backend streams the file content directly (no S3 presigned URL),
+   * so this works on private networks via internal ALB.
    */
-  async getDownloadUrl(jobId: string, filename: string): Promise<string> {
+  async downloadFile(jobId: string, filename: string): Promise<string> {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/graphql'
     const downloadUrl = apiUrl.replace('/graphql', '/download')
     const token = localStorage.getItem('auth_token')
@@ -31,7 +33,7 @@ export const api = {
       throw new Error(error.error || `Download failed with status ${response.status}`)
     }
 
-    const data = await response.json()
-    return data.url
+    const blob = await response.blob()
+    return URL.createObjectURL(blob)
   },
 }
