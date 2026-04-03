@@ -54,8 +54,14 @@ def client():
 
         # Mock S3 file storage
         mock_s3_instance = Mock()
-        mock_s3_instance.get_output = AsyncMock(
-            return_value=b"fake file content"
+
+        def make_stream_result(data=b"fake file content"):
+            async def gen():
+                yield data
+            return (len(data), gen())
+
+        mock_s3_instance.stream_output = AsyncMock(
+            side_effect=lambda **kwargs: make_stream_result()
         )
         mock_s3_storage.return_value = mock_s3_instance
 
@@ -95,8 +101,10 @@ def test_download_file_success(client, auth_token):
     assert "attachment" in response.headers["content-disposition"]
     assert "test_file_vi.xlsx" in response.headers["content-disposition"]
 
-    # Verify S3 get_output was called with correct args
-    main.app_context.s3_file_storage.get_output.assert_called_once_with(
+    assert response.headers["content-length"] == "17"
+
+    # Verify S3 stream_output was called with correct args
+    main.app_context.s3_file_storage.stream_output.assert_called_once_with(
         user_id="testuser",
         job_id=job_id,
         filename=filename,
@@ -149,7 +157,7 @@ def test_download_file_missing_params(client, auth_token):
 
 def test_download_file_s3_error(client, auth_token):
     """Test download when S3 returns an error."""
-    main.app_context.s3_file_storage.get_output = AsyncMock(
+    main.app_context.s3_file_storage.stream_output = AsyncMock(
         side_effect=Exception("S3 service unavailable")
     )
 
@@ -164,7 +172,7 @@ def test_download_file_s3_error(client, auth_token):
 
 def test_download_file_not_found(client, auth_token):
     """Test download when file does not exist in S3."""
-    main.app_context.s3_file_storage.get_output = AsyncMock(return_value=None)
+    main.app_context.s3_file_storage.stream_output = AsyncMock(return_value=None)
 
     response = client.get(
         "/api/download?job_id=test-job&filename=test.xlsx",
@@ -177,9 +185,13 @@ def test_download_file_not_found(client, auth_token):
 
 def test_download_file_uses_username_from_token(client, auth_token):
     """Test that download uses username from JWT token for S3 path."""
-    # Reset the mock to track calls
-    main.app_context.s3_file_storage.get_output = AsyncMock(
-        return_value=b"document content"
+    def make_stream_result(data=b"document content"):
+        async def gen():
+            yield data
+        return (len(data), gen())
+
+    main.app_context.s3_file_storage.stream_output = AsyncMock(
+        side_effect=lambda **kwargs: make_stream_result()
     )
 
     job_id = "job-456"
@@ -192,8 +204,8 @@ def test_download_file_uses_username_from_token(client, auth_token):
 
     assert response.status_code == 200
 
-    # Verify get_output was called with the username from the token
-    main.app_context.s3_file_storage.get_output.assert_called_once_with(
+    # Verify stream_output was called with the username from the token
+    main.app_context.s3_file_storage.stream_output.assert_called_once_with(
         user_id="testuser",
         job_id=job_id,
         filename=filename,
@@ -202,7 +214,14 @@ def test_download_file_uses_username_from_token(client, auth_token):
 
 def test_download_file_content_type(client, auth_token):
     """Test that download sets correct content type based on file extension."""
-    main.app_context.s3_file_storage.get_output = AsyncMock(return_value=b"pdf content")
+    def make_stream_result(data=b"pdf content"):
+        async def gen():
+            yield data
+        return (len(data), gen())
+
+    main.app_context.s3_file_storage.stream_output = AsyncMock(
+        side_effect=lambda **kwargs: make_stream_result()
+    )
 
     response = client.get(
         "/api/download?job_id=test-job&filename=report.pdf",

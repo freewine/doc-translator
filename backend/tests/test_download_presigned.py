@@ -122,8 +122,13 @@ class TestDownloadEndpointFileStreaming:
 
         # Create mock S3 file storage
         mock_s3_storage = AsyncMock()
-        mock_s3_storage.get_output = AsyncMock(
-            return_value=b"test file content"
+        def make_stream_result(data=b"test file content"):
+            async def gen():
+                yield data
+            return (len(data), gen())
+
+        mock_s3_storage.stream_output = AsyncMock(
+            side_effect=lambda **kwargs: make_stream_result()
         )
 
         # Create mock auth service
@@ -170,7 +175,7 @@ class TestDownloadEndpointFileStreaming:
         )
 
         # Reset the mock to track calls
-        mock_app_context.s3_file_storage.get_output.reset_mock()
+        mock_app_context.s3_file_storage.stream_output.reset_mock()
 
         # Set the global app_context
         original_context = main.app_context
@@ -223,7 +228,7 @@ class TestDownloadEndpointFileStreaming:
         mock_app_context.auth_service.verify_token = Mock(
             return_value={"sub": username, "username": username}
         )
-        mock_app_context.s3_file_storage.get_output.reset_mock()
+        mock_app_context.s3_file_storage.stream_output.reset_mock()
 
         original_context = main.app_context
         main.app_context = mock_app_context
@@ -239,12 +244,12 @@ class TestDownloadEndpointFileStreaming:
             assert response.status_code == 200, f"Download failed: {response.text}"
 
             # Verify S3 get_output was called
-            assert mock_app_context.s3_file_storage.get_output.called, (
+            assert mock_app_context.s3_file_storage.stream_output.called, (
                 "S3 get_output should be called for downloads"
             )
 
             # Get the call arguments
-            call_args = mock_app_context.s3_file_storage.get_output.call_args
+            call_args = mock_app_context.s3_file_storage.stream_output.call_args
 
             # Verify correct arguments
             assert call_args.kwargs.get("user_id") == username, (
@@ -285,7 +290,7 @@ class TestDownloadEndpointFileStreaming:
         mock_app_context.auth_service.verify_token = Mock(
             return_value={"sub": username, "username": username}
         )
-        mock_app_context.s3_file_storage.get_output.reset_mock()
+        mock_app_context.s3_file_storage.stream_output.reset_mock()
 
         original_context = main.app_context
         main.app_context = mock_app_context
@@ -337,7 +342,7 @@ class TestDownloadEndpointFileStreaming:
         mock_app_context.auth_service.verify_token = Mock(
             return_value={"sub": username, "username": username}
         )
-        mock_app_context.s3_file_storage.get_output.reset_mock()
+        mock_app_context.s3_file_storage.stream_output.reset_mock()
 
         original_context = main.app_context
         main.app_context = mock_app_context
@@ -353,7 +358,7 @@ class TestDownloadEndpointFileStreaming:
             assert response.status_code == 200
 
             # Verify get_output was called with the username from the token
-            call_args = mock_app_context.s3_file_storage.get_output.call_args
+            call_args = mock_app_context.s3_file_storage.stream_output.call_args
             assert call_args.kwargs.get("user_id") == username, (
                 f"user_id should be '{username}', got '{call_args.kwargs.get('user_id')}'"
             )
@@ -372,7 +377,7 @@ class TestDownloadEndpointS3Errors:
 
         # Create mock S3 file storage that raises an error
         mock_s3_storage = AsyncMock()
-        mock_s3_storage.get_output = AsyncMock(
+        mock_s3_storage.stream_output = AsyncMock(
             side_effect=Exception("NoSuchKey: The specified key does not exist")
         )
 

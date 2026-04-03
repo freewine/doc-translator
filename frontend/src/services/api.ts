@@ -10,7 +10,7 @@ export const api = {
    * The backend streams the file content directly (no S3 presigned URL),
    * so this works on private networks via internal ALB.
    */
-  async downloadFile(jobId: string, filename: string): Promise<string> {
+  async downloadFile(jobId: string, filename: string): Promise<Blob> {
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/graphql'
     const downloadUrl = apiUrl.replace('/graphql', '/download')
     const token = localStorage.getItem('auth_token')
@@ -33,7 +33,6 @@ export const api = {
       throw new Error(error.error || `Download failed with status ${response.status}`)
     }
 
-    const blob = await response.blob()
-    return URL.createObjectURL(blob)
+    return await response.blob()
   },
 }

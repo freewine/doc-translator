@@ -302,6 +302,90 @@ class TestS3FileStorageOutput:
         assert result is None
 
 
+class TestS3FileStorageStreamOutput:
+    """Tests for streaming output file retrieval."""
+
+    @pytest.fixture
+    def mock_s3_client(self):
+        """Create a mock S3 client."""
+        client = MagicMock()
+        return client
+
+    @pytest.fixture
+    def storage(self, mock_s3_client):
+        """Create S3FileStorage with mocked S3 client."""
+        with patch.dict("os.environ", {"S3_BUCKET": "test-bucket"}):
+            storage = S3FileStorage()
+            storage._client = mock_s3_client
+            return storage
+
+    @pytest.mark.asyncio
+    async def test_stream_output_success(self, storage, mock_s3_client):
+        """Test successful streaming retrieval returns content_length and chunks."""
+        content = b"A" * 1000
+        body_mock = MagicMock()
+        body_mock.read.side_effect = [content[:500], content[500:], b""]
+        mock_s3_client.get_object.return_value = {
+            "Body": body_mock,
+            "ContentLength": 1000,
+        }
+
+        result = await storage.stream_output("user-123", "job-789", "file.xlsx")
+        assert result is not None
+
+        content_length, generator = result
+        assert content_length == 1000
+
+        chunks = []
+        async for chunk in generator:
+            chunks.append(chunk)
+        assert b"".join(chunks) == content
+
+    @pytest.mark.asyncio
+    async def test_stream_output_not_found(self, storage, mock_s3_client):
+        """Test streaming non-existent file returns None."""
+        mock_s3_client.get_object.side_effect = ClientError(
+            {"Error": {"Code": "NoSuchKey", "Message": "Not found"}},
+            "GetObject",
+        )
+
+        result = await storage.stream_output("user-123", "job-789", "missing.xlsx")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_stream_output_closes_body(self, storage, mock_s3_client):
+        """Test that the S3 body is closed after iteration completes."""
+        body_mock = MagicMock()
+        body_mock.read.side_effect = [b"data", b""]
+        mock_s3_client.get_object.return_value = {
+            "Body": body_mock,
+            "ContentLength": 4,
+        }
+
+        _, generator = await storage.stream_output("user-123", "job-789", "f.xlsx")
+        async for _ in generator:
+            pass
+
+        body_mock.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_stream_output_closes_body_on_error(self, storage, mock_s3_client):
+        """Test that S3 body is closed even if read raises an exception."""
+        body_mock = MagicMock()
+        body_mock.read.side_effect = [b"first chunk", IOError("connection lost")]
+        mock_s3_client.get_object.return_value = {
+            "Body": body_mock,
+            "ContentLength": 1000,
+        }
+
+        _, generator = await storage.stream_output("user-123", "job-789", "f.xlsx")
+        with pytest.raises(IOError):
+            async for _ in generator:
+                pass
+
+        body_mock.close.assert_called_once()
+
+
 class TestS3FileStoragePresignedUrl:
     """Tests for presigned URL generation."""
 

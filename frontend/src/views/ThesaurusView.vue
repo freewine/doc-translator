@@ -181,6 +181,7 @@ import { useConfigStore } from '@/stores/config'
 import { useAuthStore } from '@/stores/auth'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import { useLanguage } from '@/composables/useLanguage'
+import { triggerBlobDownload } from '@/utils/download'
 import type { TermPair } from '@/types'
 import type { TablePaginationConfig } from 'ant-design-vue'
 import {
@@ -414,19 +415,11 @@ async function handleExport() {
       selectedCatalogId.value
     )
     
-    // Create download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
     const catalog = thesaurusStore.catalogs.find(c => c.id === selectedCatalogId.value)
     const catalogName = catalog?.name || 'terms'
     const date = new Date().toISOString().split('T')[0]
-    link.href = url
-    link.download = `${catalogName}_${date}.csv`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    triggerBlobDownload(blob, `${catalogName}_${date}.csv`)
     
     errorHandler.showSuccess(t('thesaurus.exportSuccess', 'Export completed'))
   } catch (err) {

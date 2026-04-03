@@ -1,6 +1,5 @@
 """Main entry point for the Doc Translation Backend API."""
 
-import io
 import os
 import re
 import logging
@@ -448,30 +447,37 @@ async def download_file(request: Request) -> Response:
         )
 
     try:
-        # Fetch file content from S3 and stream it directly to the client.
+        # Stream file content from S3 directly to the client in chunks.
         # This avoids presigned URLs that require direct S3 access, which
         # doesn't work for users on private networks via internal ALB.
-        file_content = await app_context.s3_file_storage.get_output(
+        result = await app_context.s3_file_storage.stream_output(
             user_id=username,
             job_id=job_id,
             filename=filename,
         )
 
-        if file_content is None:
+        if result is None:
             return JSONResponse(
                 {"error": "File not found or access denied"},
                 status_code=404,
             )
 
+        content_length, chunk_generator = result
         content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
         disposition = f"attachment; filename*=UTF-8''{quote(filename)}"
 
-        logger.info(f"Streaming download: job_id={job_id}, filename={filename}, user={username}")
+        logger.info(
+            f"Streaming download: job_id={job_id}, filename={filename}, "
+            f"user={username}, size={content_length}"
+        )
 
         return StreamingResponse(
-            io.BytesIO(file_content),
+            chunk_generator,
             media_type=content_type,
-            headers={"Content-Disposition": disposition},
+            headers={
+                "Content-Disposition": disposition,
+                "Content-Length": str(content_length),
+            },
         )
 
     except Exception as e:

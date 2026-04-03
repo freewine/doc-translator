@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { api } from '@/services/api'
+import { triggerBlobDownload } from '@/utils/download'
 import { useErrorHandler } from './useErrorHandler'
 
 export interface DownloadProgress {
@@ -17,28 +18,14 @@ export function useFileDownload() {
 
   const getKey = (jobId: string, filename: string) => `${jobId}:${filename}`
 
-  /**
-   * Download a file via presigned S3 URL.
-   */
   async function downloadFile(jobId: string, filename: string): Promise<void> {
     const key = getKey(jobId, filename)
 
     downloads.value.set(key, { filename, isDownloading: true, error: null })
 
     try {
-      // Download file content as blob via backend (works on private networks)
-      const blobUrl = await api.downloadFile(jobId, filename)
-
-      // Trigger browser download via blob URL
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-
-      // Free the blob URL memory
-      URL.revokeObjectURL(blobUrl)
+      const blob = await api.downloadFile(jobId, filename)
+      triggerBlobDownload(blob, filename)
 
       downloads.value.set(key, { filename, isDownloading: false, error: null })
     } catch (error) {

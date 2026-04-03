@@ -17,12 +17,15 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, AsyncGenerator, Dict, Optional, Tuple
 
 import boto3
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
+
+# Default chunk size for streaming S3 downloads
+STREAM_CHUNK_SIZE = 128 * 1024  # 128 KB
 
 
 # Content type mappings for supported document formats
@@ -397,6 +400,77 @@ class S3FileStorage:
             File content as bytes or None if not found.
         """
         return await self._run_sync(self._get_output, user_id, job_id, filename)
+
+    def _open_output_stream(
+        self, user_id: str, job_id: str, filename: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Open an S3 object for streaming without reading the body.
+
+        Returns the raw S3 get_object response (containing Body StreamingBody
+        and ContentLength) or None if the key does not exist.
+        """
+        client = self._get_client()
+        try:
+            output_key = self._make_output_key(user_id, job_id, filename)
+            return client.get_object(Bucket=self._bucket_name, Key=output_key)
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            if error_code == "NoSuchKey":
+                self._logger.debug(
+                    f"Output not found: user_id={user_id}, job_id={job_id}, "
+                    f"filename={filename}"
+                )
+                return None
+            raise
+
+    async def stream_output(
+        self,
+        user_id: str,
+        job_id: str,
+        filename: str,
+        chunk_size: int = STREAM_CHUNK_SIZE,
+    ) -> Optional[tuple[int, AsyncGenerator[bytes, None]]]:
+        """
+        Stream a translated output file in chunks.
+
+        Returns a tuple of (content_length, async_generator) or None if
+        the file does not exist. The caller must iterate the generator
+        to completion or the underlying S3 connection will leak.
+
+        Args:
+            user_id: User ID.
+            job_id: Job ID.
+            filename: Output filename.
+            chunk_size: Size of each chunk in bytes (default: 128KB).
+
+        Returns:
+            Tuple of (content_length_bytes, async_chunk_generator), or None.
+        """
+        loop = asyncio.get_event_loop()
+
+        response = await loop.run_in_executor(
+            None, self._open_output_stream, user_id, job_id, filename
+        )
+        if response is None:
+            return None
+
+        content_length = response["ContentLength"]
+        body = response["Body"]
+
+        async def _chunk_generator() -> AsyncGenerator[bytes, None]:
+            try:
+                while True:
+                    chunk = await loop.run_in_executor(
+                        None, body.read, chunk_size
+                    )
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                body.close()
+
+        return content_length, _chunk_generator()
 
     def _generate_download_url(
         self, s3_key: str, expiry: int = 900, filename: Optional[str] = None
