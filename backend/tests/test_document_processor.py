@@ -168,14 +168,37 @@ class TestExcelDocumentProcessor:
         assert processor.document_type == DocumentType.EXCEL
     
     def test_generate_output_filename(self):
-        """Test output filename generation."""
+        """Test output filename generation includes datetime stamp."""
+        import re
         processor = ExcelDocumentProcessor()
-        
+
+        # Default language suffix "vi"
         filename = processor.generate_output_filename(Path("document.xlsx"))
-        assert filename == "document_vi.xlsx"
-        
+        # Format: document_YYYYMMDD_HHMMSS_vi.xlsx
+        assert re.match(r"^document_\d{8}_\d{6}_vi\.xlsx$", filename), f"Unexpected format: {filename}"
+
+        # Explicit language suffix
         filename = processor.generate_output_filename(Path("report.xlsx"), "en")
-        assert filename == "report_en.xlsx"
+        assert re.match(r"^report_\d{8}_\d{6}_en\.xlsx$", filename), f"Unexpected format: {filename}"
+
+    def test_generate_output_filename_uniqueness(self):
+        """Test that consecutive calls produce different timestamps (or at least valid ones)."""
+        import time
+        processor = ExcelDocumentProcessor()
+
+        filename1 = processor.generate_output_filename(Path("doc.xlsx"))
+        time.sleep(1)
+        filename2 = processor.generate_output_filename(Path("doc.xlsx"))
+        assert filename1 != filename2, "Same-name files should get different timestamps"
+
+    def test_generate_output_filename_preserves_extension(self):
+        """Test that various extensions are preserved with datetime format."""
+        import re
+        processor = ExcelDocumentProcessor()
+
+        filename = processor.generate_output_filename(Path("data.xlsx"), "zh")
+        assert filename.endswith("_zh.xlsx")
+        assert re.match(r"^data_\d{8}_\d{6}_zh\.xlsx$", filename)
     
     @pytest.mark.asyncio
     async def test_extract_text_from_excel(self):

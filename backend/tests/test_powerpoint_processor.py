@@ -33,14 +33,15 @@ class TestPowerPointProcessor:
         assert processor.document_type == DocumentType.POWERPOINT
     
     def test_generate_output_filename(self):
-        """Test output filename generation."""
+        """Test output filename generation with datetime stamp."""
+        import re
         processor = PowerPointProcessor()
-        
+
         filename = processor.generate_output_filename(Path("presentation.pptx"))
-        assert filename == "presentation_vi.pptx"
-        
+        assert re.match(r"^presentation_\d{8}_\d{6}_vi\.pptx$", filename)
+
         filename = processor.generate_output_filename(Path("slides.pptx"), "en")
-        assert filename == "slides_en.pptx"
+        assert re.match(r"^slides_\d{8}_\d{6}_en\.pptx$", filename)
 
 
 class TestPowerPointProcessorExtraction:

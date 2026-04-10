@@ -263,16 +263,18 @@ class DocumentProcessor(ABC):
         language_suffix: str = "vi"
     ) -> str:
         """
-        Generate output filename with language suffix.
-        
+        Generate output filename with datetime stamp and language suffix.
+
         Args:
             source_path: Original file path
             language_suffix: Language code suffix (default: "vi")
-            
+
         Returns:
-            Filename with suffix before extension (e.g., "document_vi.docx")
+            Filename with datetime and suffix (e.g., "document_20260410_143052_vi.docx")
         """
-        return f"{source_path.stem}_{language_suffix}{source_path.suffix}"
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"{source_path.stem}_{timestamp}_{language_suffix}{source_path.suffix}"
 
 
 class DocumentProcessorFactory:

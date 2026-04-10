@@ -34,14 +34,15 @@ class TestWordProcessor:
         assert processor.document_type == DocumentType.WORD
     
     def test_generate_output_filename(self):
-        """Test output filename generation."""
+        """Test output filename generation with datetime stamp."""
+        import re
         processor = WordProcessor()
-        
+
         filename = processor.generate_output_filename(Path("document.docx"))
-        assert filename == "document_vi.docx"
-        
+        assert re.match(r"^document_\d{8}_\d{6}_vi\.docx$", filename)
+
         filename = processor.generate_output_filename(Path("report.docx"), "en")
-        assert filename == "report_en.docx"
+        assert re.match(r"^report_\d{8}_\d{6}_en\.docx$", filename)
 
 
 class TestWordProcessorExtraction:

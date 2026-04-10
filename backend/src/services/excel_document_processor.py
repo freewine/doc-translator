@@ -87,9 +87,6 @@ class ExcelDocumentProcessor(DocumentProcessor):
                 segments.append(segment)
                 segment_id += 1
         
-        # Store workbook reference for later use in write_translated
-        self._current_workbook = workbook
-        
         self.logger.info(f"Extracted {len(segments)} text segments from {file_path.name}")
         return segments
     
@@ -115,13 +112,12 @@ class ExcelDocumentProcessor(DocumentProcessor):
             True if writing succeeded, False otherwise
         """
         try:
-            # Load workbook if not already loaded
-            workbook = getattr(self, '_current_workbook', None)
+            # Always load fresh from file to avoid shared state issues
+            # during concurrent processing of multiple files
+            workbook = await self._excel_processor.load_workbook(file_path)
             if workbook is None:
-                workbook = await self._excel_processor.load_workbook(file_path)
-                if workbook is None:
-                    self.logger.error(f"Failed to load workbook for writing: {file_path}")
-                    return False
+                self.logger.error(f"Failed to load workbook for writing: {file_path}")
+                return False
             
             # Create a mapping of segment locations to (original_text, translation)
             translation_map = {}
@@ -152,10 +148,6 @@ class ExcelDocumentProcessor(DocumentProcessor):
             await asyncio.to_thread(workbook.save, str(output_path))
             
             self.logger.info(f"Saved translated Excel to: {output_path}")
-            
-            # Clear the cached workbook
-            self._current_workbook = None
-            
             return True
             
         except Exception as e:

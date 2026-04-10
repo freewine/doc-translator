@@ -324,11 +324,12 @@ class TestTextProcessorWriteTranslated:
                 input_path.unlink()
 
     async def test_generate_output_filename(self):
-        """Test output filename generation."""
+        """Test output filename generation with datetime stamp."""
+        import re
         processor = TextProcessor()
 
         filename = processor.generate_output_filename(Path("document.txt"))
-        assert filename == "document_vi.txt"
+        assert re.match(r"^document_\d{8}_\d{6}_vi\.txt$", filename)
 
         filename = processor.generate_output_filename(Path("readme.txt"), "en")
-        assert filename == "readme_en.txt"
+        assert re.match(r"^readme_\d{8}_\d{6}_en\.txt$", filename)

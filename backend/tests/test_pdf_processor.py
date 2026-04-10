@@ -32,14 +32,15 @@ class TestPDFProcessor:
         assert processor.document_type == DocumentType.PDF
     
     def test_generate_output_filename(self):
-        """Test output filename generation."""
+        """Test output filename generation with datetime stamp."""
+        import re
         processor = PDFProcessor()
-        
+
         filename = processor.generate_output_filename(Path("document.pdf"))
-        assert filename == "document_vi.pdf"
-        
+        assert re.match(r"^document_\d{8}_\d{6}_vi\.pdf$", filename)
+
         filename = processor.generate_output_filename(Path("report.pdf"), "en")
-        assert filename == "report_en.pdf"
+        assert re.match(r"^report_\d{8}_\d{6}_en\.pdf$", filename)
 
 
 class TestPDFProcessorExtraction:
@@ -618,7 +619,7 @@ class TestPDFProcessorFontResolution:
     def test_resolve_font_sans_serif_default(self):
         """Default font should be Helvetica (sans-serif)."""
         processor = PDFProcessor()
-        font, css_family, css_extra = processor._resolve_font("ArialMT", 0)
+        font, css_family, css_extra = processor._resolve_font("ArialMT", 0, {})
         assert css_family == "sans-serif"
         assert "bold" not in css_extra
         assert "italic" not in css_extra
@@ -626,44 +627,44 @@ class TestPDFProcessorFontResolution:
     def test_resolve_font_serif(self):
         """Font with serif keyword should resolve to serif family."""
         processor = PDFProcessor()
-        font, css_family, _ = processor._resolve_font("TimesNewRomanPSMT", 0)
+        font, css_family, _ = processor._resolve_font("TimesNewRomanPSMT", 0, {})
         assert css_family == "serif"
 
     def test_resolve_font_serif_via_flag(self):
         """Font with serif flag (bit 2) should resolve to serif."""
         processor = PDFProcessor()
-        font, css_family, _ = processor._resolve_font("SomeFont", 1 << 2)
+        font, css_family, _ = processor._resolve_font("SomeFont", 1 << 2, {})
         assert css_family == "serif"
 
     def test_resolve_font_monospace(self):
         """Font with monospace keyword should resolve to monospace family."""
         processor = PDFProcessor()
-        font, css_family, _ = processor._resolve_font("CourierNew", 0)
+        font, css_family, _ = processor._resolve_font("CourierNew", 0, {})
         assert css_family == "monospace"
 
     def test_resolve_font_monospace_via_flag(self):
         """Font with monospace flag (bit 3) should resolve to monospace."""
         processor = PDFProcessor()
-        font, css_family, _ = processor._resolve_font("SomeFont", 1 << 3)
+        font, css_family, _ = processor._resolve_font("SomeFont", 1 << 3, {})
         assert css_family == "monospace"
 
     def test_resolve_font_bold(self):
         """Bold flag (bit 4) should produce bold CSS."""
         processor = PDFProcessor()
-        _, _, css_extra = processor._resolve_font("Helvetica-Bold", 1 << 4)
+        _, _, css_extra = processor._resolve_font("Helvetica-Bold", 1 << 4, {})
         assert "font-weight: bold" in css_extra
 
     def test_resolve_font_italic(self):
         """Italic flag (bit 1) should produce italic CSS."""
         processor = PDFProcessor()
-        _, _, css_extra = processor._resolve_font("Helvetica-Oblique", 1 << 1)
+        _, _, css_extra = processor._resolve_font("Helvetica-Oblique", 1 << 1, {})
         assert "font-style: italic" in css_extra
 
     def test_resolve_font_bold_italic(self):
         """Both bold and italic flags should produce both CSS."""
         processor = PDFProcessor()
         flags = (1 << 4) | (1 << 1)
-        _, _, css_extra = processor._resolve_font("Helvetica-BoldOblique", flags)
+        _, _, css_extra = processor._resolve_font("Helvetica-BoldOblique", flags, {})
         assert "font-weight: bold" in css_extra
         assert "font-style: italic" in css_extra
 
@@ -687,7 +688,7 @@ class TestPDFProcessorBackgroundDetection:
         try:
             doc = fitz.open(str(file_path))
             page = doc[0]
-            bg = processor._detect_background_color(page, 0)
+            bg = processor._detect_background_color(page, 0, {})
             doc.close()
             # White page should give near-white values
             assert bg[0] >= 0.95
@@ -714,7 +715,7 @@ class TestPDFProcessorBackgroundDetection:
         try:
             doc = fitz.open(str(file_path))
             page = doc[0]
-            bg = processor._detect_background_color(page, 0)
+            bg = processor._detect_background_color(page, 0, {})
             doc.close()
             # Should detect the blue-ish background, not white
             assert bg[2] > bg[0]  # Blue component should be higher than red
@@ -724,10 +725,10 @@ class TestPDFProcessorBackgroundDetection:
     def test_background_color_caching(self):
         """Background color should be cached per page."""
         processor = PDFProcessor()
-        processor._page_bg_cache[0] = (0.5, 0.5, 0.5)
+        page_bg_cache = {0: (0.5, 0.5, 0.5)}
         doc = fitz.open()
         page = doc.new_page()
-        bg = processor._detect_background_color(page, 0)
+        bg = processor._detect_background_color(page, 0, page_bg_cache)
         doc.close()
         assert bg == (0.5, 0.5, 0.5)
 
@@ -770,7 +771,7 @@ class TestPDFProcessorBuildSpanHtml:
         """Single span should produce one HTML span element."""
         processor = PDFProcessor()
         spans = [{"text": "Hello", "font": "Helvetica", "flags": 0, "size": 12, "color": 0}]
-        html = processor._build_span_html(spans, "Bonjour")
+        html = processor._build_span_html(spans, "Bonjour", {})
         assert "<span style=" in html
         assert "Bonjour" in html
 
@@ -779,7 +780,7 @@ class TestPDFProcessorBuildSpanHtml:
         processor = PDFProcessor()
         flags = (1 << 4) | (1 << 1)  # bold + italic
         spans = [{"text": "Hello", "font": "Helvetica", "flags": flags, "size": 14, "color": 0}]
-        html = processor._build_span_html(spans, "Bonjour")
+        html = processor._build_span_html(spans, "Bonjour", {})
         assert "font-weight: bold" in html
         assert "font-style: italic" in html
 
@@ -790,7 +791,7 @@ class TestPDFProcessorBuildSpanHtml:
             {"text": "Bold", "font": "Helvetica-Bold", "flags": (1 << 4), "size": 12, "color": 0},
             {"text": " Normal", "font": "Helvetica", "flags": 0, "size": 12, "color": 0},
         ]
-        html = processor._build_span_html(spans, "Gras Normal")
+        html = processor._build_span_html(spans, "Gras Normal", {})
         assert html.count("<span style=") == 2
         assert "font-weight: bold" in html
 
@@ -798,7 +799,7 @@ class TestPDFProcessorBuildSpanHtml:
         """Special HTML characters should be escaped."""
         processor = PDFProcessor()
         spans = [{"text": "test", "font": "Helvetica", "flags": 0, "size": 12, "color": 0}]
-        html = processor._build_span_html(spans, "a < b & c > d")
+        html = processor._build_span_html(spans, "a < b & c > d", {})
         assert "&lt;" in html
         assert "&amp;" in html
         assert "&gt;" in html

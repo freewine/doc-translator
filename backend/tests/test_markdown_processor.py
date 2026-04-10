@@ -503,11 +503,12 @@ class TestMarkdownProcessorWriteTranslated:
                 output_path.unlink()
 
     async def test_generate_output_filename(self):
-        """Test output filename generation."""
+        """Test output filename generation with datetime stamp."""
+        import re
         processor = MarkdownProcessor()
 
         filename = processor.generate_output_filename(Path("document.md"))
-        assert filename == "document_vi.md"
+        assert re.match(r"^document_\d{8}_\d{6}_vi\.md$", filename)
 
         filename = processor.generate_output_filename(Path("readme.md"), "en")
-        assert filename == "readme_en.md"
+        assert re.match(r"^readme_\d{8}_\d{6}_en\.md$", filename)

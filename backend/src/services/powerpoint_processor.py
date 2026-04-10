@@ -51,7 +51,6 @@ class PowerPointProcessor(DocumentProcessor):
             logger: Logger instance for logging operations
         """
         self.logger = logger or logging.getLogger(__name__)
-        self._current_presentation: Optional[Presentation] = None
 
     @property
     def supported_extensions(self) -> List[str]:
@@ -89,7 +88,6 @@ class PowerPointProcessor(DocumentProcessor):
                 raise ValueError(f"Failed to load PowerPoint file: {file_path}. File may be corrupted.")
             raise ValueError(f"Failed to load PowerPoint file: {file_path}. Error: {str(e)}")
         
-        self._current_presentation = presentation
         segments: List[TextSegment] = []
         segment_id = 0
         
@@ -500,10 +498,9 @@ class PowerPointProcessor(DocumentProcessor):
             True if writing succeeded, False otherwise
         """
         try:
-            # Load presentation if not already loaded
-            presentation = self._current_presentation
-            if presentation is None:
-                presentation = await asyncio.to_thread(Presentation, str(file_path))
+            # Always load fresh from file to avoid shared state issues
+            # during concurrent processing of multiple files
+            presentation = await asyncio.to_thread(Presentation, str(file_path))
             
             # Create translation map with output mode applied
             translation_map = {}
@@ -551,10 +548,6 @@ class PowerPointProcessor(DocumentProcessor):
             await asyncio.to_thread(presentation.save, str(output_path))
             
             self.logger.info(f"Saved translated PowerPoint presentation to: {output_path}")
-            
-            # Clear the cached presentation
-            self._current_presentation = None
-            
             return True
             
         except Exception as e:
