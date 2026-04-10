@@ -7,6 +7,8 @@ import pytest
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.drawing.image import Image as OpenpyxlImage
+from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.cell.text import InlineFont
 
 from src.services.excel_processor import ExcelProcessor, WorksheetProgress
 
@@ -347,3 +349,39 @@ class TestExcelProcessorIntegration:
         # Verify we never exceeded the limit
         assert max_active <= 5
         assert max_active > 1  # Verify we actually ran concurrently
+
+    @pytest.mark.asyncio
+    async def test_rich_text_cells_are_extracted(self, excel_processor):
+        """
+        Test that cells with rich text (mixed formatting) are extracted for translation.
+        CellRichText objects inherit from list, not str, and must not be skipped.
+        """
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "RichText"
+
+        # Plain text cell
+        ws['A1'] = "Plain text"
+
+        # Rich text cell: mixed bold and normal text
+        rich = CellRichText(
+            TextBlock(InlineFont(b=True), "加粗部分"),
+            "普通部分",
+        )
+        ws['A2'].value = rich
+
+        # Save and reload with rich_text=True to preserve CellRichText
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "rich.xlsx"
+            wb.save(str(path))
+
+            loaded_wb = await excel_processor.load_workbook(path)
+            loaded_ws = loaded_wb.active
+
+            cells = await excel_processor.iterate_cells_in_worksheet(loaded_ws)
+            values = [c.value for c in cells]
+
+            # Both cells should be extracted (rich text converted to str)
+            assert len(values) == 2
+            assert "Plain text" in values
+            assert "加粗部分普通部分" in values

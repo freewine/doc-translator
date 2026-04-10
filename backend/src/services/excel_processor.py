@@ -15,6 +15,7 @@ from openpyxl import load_workbook
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.cell.cell import Cell
+from openpyxl.cell.rich_text import CellRichText
 
 
 @dataclass
@@ -127,10 +128,11 @@ class ExcelProcessor:
                         continue
 
                     # Skip non-text cells (numbers, dates, booleans)
-                    if not isinstance(cell.value, str):
+                    # CellRichText (from rich_text=True) inherits from list, not str
+                    if not isinstance(cell.value, (str, CellRichText)):
                         continue
 
-                    cell_text = cell.value
+                    cell_text = str(cell.value) if isinstance(cell.value, CellRichText) else cell.value
                     
                     # Skip cells with only whitespace
                     if not cell_text.strip():
