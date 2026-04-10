@@ -16,9 +16,11 @@ from src.services.document_processor import (
     TextSegment,
     ProcessingResult,
     DocumentProcessorFactory,
-    apply_interleaved_mode,
+    apply_interleave_mode,
+    apply_interleave_reverse_mode,
     apply_output_mode,
     apply_append_mode,
+    apply_prepend_mode,
 )
 from src.services.excel_document_processor import ExcelDocumentProcessor
 
@@ -350,8 +352,8 @@ class TestExcelDocumentProcessor:
                 output_path.unlink()
 
 
-class TestApplyInterleavedMode:
-    """Tests for apply_interleaved_mode function.
+class TestApplyInterleaveMode:
+    """Tests for apply_interleave_mode function.
     
     Validates Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
     """
@@ -364,7 +366,7 @@ class TestApplyInterleavedMode:
         original = "Hello"
         translated = "Xin chào"
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         assert result == "Hello\nXin chào"
     
@@ -376,7 +378,7 @@ class TestApplyInterleavedMode:
         original = "Line 1\nLine 2\nLine 3"
         translated = "Dòng 1\nDòng 2\nDòng 3"
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         expected = "Line 1\nDòng 1\nLine 2\nDòng 2\nLine 3\nDòng 3"
         assert result == expected
@@ -389,7 +391,7 @@ class TestApplyInterleavedMode:
         original = "Line 1\nLine 2\nLine 3\nLine 4"
         translated = "Dòng 1\nDòng 2"
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         # Expected: Line 1, Dòng 1, Line 2, Dòng 2, Line 3, Line 4
         expected = "Line 1\nDòng 1\nLine 2\nDòng 2\nLine 3\nLine 4"
@@ -403,7 +405,7 @@ class TestApplyInterleavedMode:
         original = "Line 1\nLine 2"
         translated = "Dòng 1\nDòng 2\nDòng 3\nDòng 4"
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         # Expected: Line 1, Dòng 1, Line 2, Dòng 2, Dòng 3, Dòng 4
         expected = "Line 1\nDòng 1\nLine 2\nDòng 2\nDòng 3\nDòng 4"
@@ -416,7 +418,7 @@ class TestApplyInterleavedMode:
         """
         text = "Same text\nOn multiple lines"
         
-        result = apply_interleaved_mode(text, text)
+        result = apply_interleave_mode(text, text)
         
         assert result == text
     
@@ -428,7 +430,7 @@ class TestApplyInterleavedMode:
         original = "  Same text  "
         translated = "Same text"
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         # Should return translated (no duplication)
         assert result == translated
@@ -438,7 +440,7 @@ class TestApplyInterleavedMode:
         original = ""
         translated = "Dòng 1\nDòng 2"
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         # Empty string splits to [''], so we get: '', Dòng 1, Dòng 2
         expected = "\nDòng 1\nDòng 2"
@@ -449,7 +451,7 @@ class TestApplyInterleavedMode:
         original = "Line 1\nLine 2"
         translated = ""
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         # Empty string splits to [''], so we get: Line 1, '', Line 2
         expected = "Line 1\n\nLine 2"
@@ -460,7 +462,7 @@ class TestApplyInterleavedMode:
         original = ""
         translated = ""
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         # Both equal after strip, so return translated
         assert result == ""
@@ -470,7 +472,7 @@ class TestApplyInterleavedMode:
         original = "Line 1\n\nLine 3"
         translated = "Dòng 1\nDòng 2\nDòng 3"
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         # Expected: Line 1, Dòng 1, '', Dòng 2, Line 3, Dòng 3
         expected = "Line 1\nDòng 1\n\nDòng 2\nLine 3\nDòng 3"
@@ -481,7 +483,7 @@ class TestApplyInterleavedMode:
         original = "Line 1\nLine 2\nLine 3"
         translated = "Dòng 1\n\nDòng 3"
         
-        result = apply_interleaved_mode(original, translated)
+        result = apply_interleave_mode(original, translated)
         
         # Expected: Line 1, Dòng 1, Line 2, '', Line 3, Dòng 3
         expected = "Line 1\nDòng 1\nLine 2\n\nLine 3\nDòng 3"
@@ -519,15 +521,15 @@ class TestApplyOutputMode:
         expected = f"{original}\n{translated}"
         assert result == expected
 
-    def test_interleaved_mode_interleaves_lines(self):
-        """Test interleaved mode interleaves original and translated lines.
+    def test_interleave_mode_interleaves_lines(self):
+        """Test interleave mode interleaves original and translated lines.
 
         Validates: Requirements 4.6
         """
         original = "Line 1\nLine 2"
         translated = "Dòng 1\nDòng 2"
 
-        result = apply_output_mode(original, translated, "interleaved")
+        result = apply_output_mode(original, translated, "interleave")
 
         expected = "Line 1\nDòng 1\nLine 2\nDòng 2"
         assert result == expected
@@ -569,24 +571,44 @@ class TestApplyOutputMode:
         # apply_append_mode should avoid duplication when texts are equal
         assert result == text
 
-    def test_interleaved_mode_with_equal_texts(self):
-        """Test interleaved mode when original and translated are equal (no duplication)."""
+    def test_interleave_mode_with_equal_texts(self):
+        """Test interleave mode when original and translated are equal (no duplication)."""
         text = "Same text\nOn multiple lines"
 
-        result = apply_output_mode(text, text, "interleaved")
+        result = apply_output_mode(text, text, "interleave")
 
-        # apply_interleaved_mode should avoid duplication when texts are equal
+        # apply_interleave_mode should avoid duplication when texts are equal
         assert result == text
 
-    def test_interleaved_mode_with_unequal_line_counts(self):
-        """Test interleaved mode handles unequal line counts correctly."""
+    def test_interleave_mode_with_unequal_line_counts(self):
+        """Test interleave mode handles unequal line counts correctly."""
         original = "Line 1\nLine 2\nLine 3"
         translated = "Dòng 1"
 
-        result = apply_output_mode(original, translated, "interleaved")
+        result = apply_output_mode(original, translated, "interleave")
 
         # Expected: Line 1, Dòng 1, Line 2, Line 3
         expected = "Line 1\nDòng 1\nLine 2\nLine 3"
+        assert result == expected
+
+    def test_prepend_mode_prepends_translated_before_original(self):
+        """Test prepend mode places translated text before original."""
+        original = "Hello World"
+        translated = "Xin chào Thế giới"
+
+        result = apply_output_mode(original, translated, "prepend")
+
+        expected = f"{translated}\n{original}"
+        assert result == expected
+
+    def test_interleave_reverse_mode_translated_first(self):
+        """Test interleave_reverse mode places translated lines before original lines."""
+        original = "Line 1\nLine 2"
+        translated = "Dòng 1\nDòng 2"
+
+        result = apply_output_mode(original, translated, "interleave_reverse")
+
+        expected = "Dòng 1\nLine 1\nDòng 2\nLine 2"
         assert result == expected
 
     def test_replace_mode_preserves_special_characters(self):
@@ -666,6 +688,98 @@ class TestApplyAppendMode:
         assert result == "Line 1\nLine 2\nDòng 1\nDòng 2"
 
 
+class TestApplyPrependMode:
+    """Tests for the apply_prepend_mode function."""
+
+    def test_prepends_translated_before_original(self):
+        """Test that translated text is prepended before original."""
+        original = "Hello"
+        translated = "Xin chào"
+
+        result = apply_prepend_mode(original, translated)
+
+        assert result == "Xin chào\nHello"
+
+    def test_no_duplication_when_texts_equal(self):
+        """Test that equal texts are not duplicated."""
+        text = "Same text"
+
+        result = apply_prepend_mode(text, text)
+
+        assert result == text
+
+    def test_no_duplication_when_texts_equal_after_strip(self):
+        """Test that texts equal after stripping are not duplicated."""
+        original = "  Hello  "
+        translated = "Hello"
+
+        result = apply_prepend_mode(original, translated)
+
+        assert result == translated
+
+    def test_multiline_prepend(self):
+        """Test prepend with multiline text."""
+        original = "Line 1\nLine 2"
+        translated = "Dòng 1\nDòng 2"
+
+        result = apply_prepend_mode(original, translated)
+
+        assert result == "Dòng 1\nDòng 2\nLine 1\nLine 2"
+
+
+class TestApplyInterleaveReverseMode:
+    """Tests for the apply_interleave_reverse_mode function."""
+
+    def test_single_line_translated_first(self):
+        """Test that translated line comes before original line."""
+        original = "Hello"
+        translated = "Xin chào"
+
+        result = apply_interleave_reverse_mode(original, translated)
+
+        assert result == "Xin chào\nHello"
+
+    def test_multi_line_translated_first(self):
+        """Test multi-line interleaving with translated lines first."""
+        original = "Line 1\nLine 2\nLine 3"
+        translated = "Dòng 1\nDòng 2\nDòng 3"
+
+        result = apply_interleave_reverse_mode(original, translated)
+
+        expected = "Dòng 1\nLine 1\nDòng 2\nLine 2\nDòng 3\nLine 3"
+        assert result == expected
+
+    def test_no_duplication_when_texts_equal(self):
+        """Test that equal texts are not duplicated."""
+        text = "Same text\nOn multiple lines"
+
+        result = apply_interleave_reverse_mode(text, text)
+
+        assert result == text
+
+    def test_original_has_more_lines(self):
+        """Test when original has more lines than translated."""
+        original = "Line 1\nLine 2\nLine 3"
+        translated = "Dòng 1"
+
+        result = apply_interleave_reverse_mode(original, translated)
+
+        # Expected: Dòng 1, Line 1, Line 2, Line 3
+        expected = "Dòng 1\nLine 1\nLine 2\nLine 3"
+        assert result == expected
+
+    def test_translated_has_more_lines(self):
+        """Test when translated has more lines than original."""
+        original = "Line 1"
+        translated = "Dòng 1\nDòng 2\nDòng 3"
+
+        result = apply_interleave_reverse_mode(original, translated)
+
+        # Expected: Dòng 1, Line 1, Dòng 2, Dòng 3
+        expected = "Dòng 1\nLine 1\nDòng 2\nDòng 3"
+        assert result == expected
+
+
 class TestOutputModeInTranslationJob:
     """Tests for output_mode field in TranslationJob model."""
 
@@ -694,18 +808,44 @@ class TestOutputModeInTranslationJob:
 
         assert job.output_mode == "append"
 
-    def test_output_mode_set_to_interleaved(self):
-        """Test that output_mode can be set to 'interleaved'."""
+    def test_output_mode_set_to_prepend(self):
+        """Test that output_mode can be set to 'prepend'."""
         from src.models.job import TranslationJob, JobStatus
 
         job = TranslationJob(
             status=JobStatus.PENDING,
             files_total=1,
             file_ids=["file-1"],
-            output_mode="interleaved"
+            output_mode="prepend"
         )
 
-        assert job.output_mode == "interleaved"
+        assert job.output_mode == "prepend"
+
+    def test_output_mode_set_to_interleave(self):
+        """Test that output_mode can be set to 'interleave'."""
+        from src.models.job import TranslationJob, JobStatus
+
+        job = TranslationJob(
+            status=JobStatus.PENDING,
+            files_total=1,
+            file_ids=["file-1"],
+            output_mode="interleave"
+        )
+
+        assert job.output_mode == "interleave"
+
+    def test_output_mode_set_to_interleave_reverse(self):
+        """Test that output_mode can be set to 'interleave_reverse'."""
+        from src.models.job import TranslationJob, JobStatus
+
+        job = TranslationJob(
+            status=JobStatus.PENDING,
+            files_total=1,
+            file_ids=["file-1"],
+            output_mode="interleave_reverse"
+        )
+
+        assert job.output_mode == "interleave_reverse"
 
 
 class TestOutputModeInJobManager:
@@ -744,13 +884,29 @@ class TestOutputModeInJobManager:
 
         assert job.output_mode == "append"
 
-    async def test_create_job_with_interleaved_mode(self, job_manager, language_pair):
-        """Test that create_job propagates 'interleaved' output_mode."""
+    async def test_create_job_with_prepend_mode(self, job_manager, language_pair):
+        """Test that create_job propagates 'prepend' output_mode."""
         job = await job_manager.create_job(
-            ["file-1"], language_pair, output_mode="interleaved"
+            ["file-1"], language_pair, output_mode="prepend"
         )
 
-        assert job.output_mode == "interleaved"
+        assert job.output_mode == "prepend"
+
+    async def test_create_job_with_interleave_mode(self, job_manager, language_pair):
+        """Test that create_job propagates 'interleave' output_mode."""
+        job = await job_manager.create_job(
+            ["file-1"], language_pair, output_mode="interleave"
+        )
+
+        assert job.output_mode == "interleave"
+
+    async def test_create_job_with_interleave_reverse_mode(self, job_manager, language_pair):
+        """Test that create_job propagates 'interleave_reverse' output_mode."""
+        job = await job_manager.create_job(
+            ["file-1"], language_pair, output_mode="interleave_reverse"
+        )
+
+        assert job.output_mode == "interleave_reverse"
 
 
 class TestOutputModeValidationInResolver:
@@ -812,7 +968,7 @@ class TestOutputModeValidationInResolver:
             "current_user": Mock(username="testuser"),
         }
 
-        for invalid in ["Replace", "APPEND", "Interleaved"]:
+        for invalid in ["Replace", "APPEND", "Prepend", "Interleave", "INTERLEAVE_REVERSE"]:
             with pytest.raises(Exception) as exc_info:
                 await resolve_create_translation_job(
                     info=info,

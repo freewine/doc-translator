@@ -224,10 +224,12 @@ export default {
   // Output Mode
   outputMode: {
     label: '输出模式',
-    tooltip: '选择原文和译文在输出文档中的组合方式。',
+    tooltip: '替换：仅保留译文。追加：原文在前，译文在后。前置：译文在前，原文在后。交错：逐行交替，原文在前。交错（反转）：逐行交替，译文在前。',
     replace: '替换',
     append: '追加',
-    interleaved: '交错'
+    prepend: '前置',
+    interleave: '交错',
+    interleave_reverse: '交错（反转）'
   },
 
   // Error Messages

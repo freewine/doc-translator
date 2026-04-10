@@ -109,7 +109,7 @@ class TextProcessor(DocumentProcessor):
             segments: List of original text segments
             translations: List of translated texts (same order as segments)
             output_path: Path where the translated file should be saved
-            output_mode: One of "replace", "append", "interleaved" (default: "replace")
+            output_mode: One of "replace", "append", "prepend", "interleave", "interleave_reverse" (default: "replace")
 
         Returns:
             True if writing succeeded, False otherwise

@@ -157,7 +157,7 @@ export interface TranslationJob {
 }
 
 // Output mode type for UI - determines how original and translated text are combined
-export type OutputMode = 'replace' | 'append' | 'interleaved'
+export type OutputMode = 'replace' | 'append' | 'prepend' | 'interleave' | 'interleave_reverse'
 
 export interface FileUpload {
   id: string

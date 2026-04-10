@@ -145,7 +145,7 @@ class TranslationJob:
         completed_at: Timestamp when the job completed (None if not completed)
         language_pair: Language pair used for translation
         file_ids: List of file IDs to be processed
-        output_mode: Output mode for translations ("replace", "append", "interleaved")
+        output_mode: Output mode for translations ("replace", "append", "prepend", "interleave", "interleave_reverse")
     """
     id: str = field(default_factory=lambda: str(uuid4()))
     status: JobStatus = JobStatus.PENDING

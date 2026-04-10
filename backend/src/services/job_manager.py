@@ -38,7 +38,7 @@ class JobManager:
         Args:
             file_ids: List of file IDs to be processed
             language_pair: Language pair to use for translation
-            output_mode: One of "replace", "append", "interleaved" (default: "replace")
+            output_mode: One of "replace", "append", "prepend", "interleave", "interleave_reverse" (default: "replace")
 
         Returns:
             The newly created translation job

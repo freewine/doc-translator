@@ -83,7 +83,9 @@
                 <a-radio-group v-model:value="outputMode" class="output-mode-radio-group">
                   <a-radio value="replace">{{ t('outputMode.replace') }}</a-radio>
                   <a-radio value="append">{{ t('outputMode.append') }}</a-radio>
-                  <a-radio value="interleaved">{{ t('outputMode.interleaved') }}</a-radio>
+                  <a-radio value="prepend">{{ t('outputMode.prepend') }}</a-radio>
+                  <a-radio value="interleave">{{ t('outputMode.interleave') }}</a-radio>
+                  <a-radio value="interleave_reverse">{{ t('outputMode.interleave_reverse') }}</a-radio>
                 </a-radio-group>
               </div>
               <a-button

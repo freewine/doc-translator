@@ -37,51 +37,93 @@ def apply_append_mode(
     return f"{original_text}\n{translated_text}"
 
 
-def apply_interleaved_mode(
+def apply_prepend_mode(
+    original_text: str,
+    translated_text: str,
+) -> str:
+    """
+    Prepend translated text before original text.
+
+    If texts are equal (after stripping), returns translated text only to avoid duplication.
+
+    Args:
+        original_text: Original text from document
+        translated_text: Translated text
+
+    Returns:
+        Combined text with translation followed by original
+    """
+    if original_text.strip() == translated_text.strip():
+        return translated_text
+
+    return f"{translated_text}\n{original_text}"
+
+
+def apply_interleave_mode(
     original_text: str,
     translated_text: str
 ) -> str:
     """
-    Apply interleaved mode logic to interleave original and translated lines.
-    
-    When interleaved mode is enabled, this function splits both original and
-    translated text by newline characters and interleaves them line by line
-    in the format: original_line_1, translated_line_1, original_line_2, etc.
-    
+    Interleave original and translated lines, with original lines first in each pair.
+
+    Splits both texts by newline and alternates: original_line_1, translated_line_1, etc.
+
     Args:
         original_text: Original text from document
         translated_text: Translated text
-        
+
     Returns:
         Interleaved text with original and translated lines alternating
-        
-    Requirements:
-        - 4.1: Split both original and translated text by newline characters
-        - 4.2: Interleave lines in format {original_line_1}\\n{translated_line_1}\\n...
-        - 4.3: Append remaining original lines if original has more lines
-        - 4.4: Append remaining translated lines if translated has more lines
-        - 4.5: Return original text only if texts are equal (no duplication)
     """
-    # If texts are equal, no need to interleave (avoid duplication)
-    # Requirement 4.5
     if original_text.strip() == translated_text.strip():
         return translated_text
-    
-    # Split by newline characters - Requirement 4.1
+
     original_lines = original_text.split('\n')
     translated_lines = translated_text.split('\n')
-    
+
     result_lines = []
     max_lines = max(len(original_lines), len(translated_lines))
-    
-    # Interleave lines - Requirement 4.2
-    # Handle unequal line counts - Requirements 4.3, 4.4
+
     for i in range(max_lines):
         if i < len(original_lines):
             result_lines.append(original_lines[i])
         if i < len(translated_lines):
             result_lines.append(translated_lines[i])
-    
+
+    return '\n'.join(result_lines)
+
+
+def apply_interleave_reverse_mode(
+    original_text: str,
+    translated_text: str
+) -> str:
+    """
+    Interleave original and translated lines, with translated lines first in each pair.
+
+    Splits both texts by newline and alternates: translated_line_1, original_line_1, etc.
+
+    Args:
+        original_text: Original text from document
+        translated_text: Translated text
+
+    Returns:
+        Interleaved text with translated and original lines alternating
+    """
+    if original_text.strip() == translated_text.strip():
+        return translated_text
+
+    original_lines = original_text.split('\n')
+    translated_lines = translated_text.split('\n')
+
+    result_lines = []
+    max_lines = max(len(original_lines), len(translated_lines))
+
+    for i in range(max_lines):
+        if i < len(translated_lines):
+            result_lines.append(translated_lines[i])
+        if i < len(original_lines):
+            result_lines.append(original_lines[i])
+
     return '\n'.join(result_lines)
 
 
@@ -94,22 +136,28 @@ def apply_output_mode(
     Apply the appropriate output mode to determine final text.
 
     Routes to the appropriate mode handler based on the output_mode:
-    - "interleaved": interleave original and translated lines
-    - "append": append translated text after original
     - "replace" (default): return translated text only
+    - "append": original text followed by translated text
+    - "prepend": translated text followed by original text
+    - "interleave": interleave lines, original first in each pair
+    - "interleave_reverse": interleave lines, translated first in each pair
 
     Args:
         original_text: Original text from document
         translated_text: Translated text
-        output_mode: One of "replace", "append", "interleaved"
+        output_mode: One of "replace", "append", "prepend", "interleave", "interleave_reverse"
 
     Returns:
         Final text to write to document
     """
-    if output_mode == "interleaved":
-        return apply_interleaved_mode(original_text, translated_text)
+    if output_mode == "interleave":
+        return apply_interleave_mode(original_text, translated_text)
+    elif output_mode == "interleave_reverse":
+        return apply_interleave_reverse_mode(original_text, translated_text)
     elif output_mode == "append":
         return apply_append_mode(original_text, translated_text)
+    elif output_mode == "prepend":
+        return apply_prepend_mode(original_text, translated_text)
     else:
         return translated_text
 
@@ -221,15 +269,17 @@ class DocumentProcessor(ABC):
 
         Output modes:
         - "replace": translated text replaces original (default)
-        - "append": translated text appended after original
-        - "interleaved": original and translated lines interleaved
+        - "append": original text followed by translated text
+        - "prepend": translated text followed by original text
+        - "interleave": interleave lines, original first in each pair
+        - "interleave_reverse": interleave lines, translated first in each pair
 
         Args:
             file_path: Path to the original document
             segments: List of original text segments
             translations: List of translated texts (same order as segments)
             output_path: Path where the translated document should be saved
-            output_mode: One of "replace", "append", "interleaved" (default: "replace")
+            output_mode: One of "replace", "append", "prepend", "interleave", "interleave_reverse" (default: "replace")
             
         Returns:
             True if writing succeeded, False otherwise

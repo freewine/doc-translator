@@ -501,7 +501,7 @@ class TestPDFProcessorOutputModes:
 
             success = await processor.write_translated(
                 input_path, segments, translations, output_path,
-                output_mode="interleaved"
+                output_mode="interleave"
             )
 
             assert success is True

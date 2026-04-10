@@ -256,7 +256,7 @@ class TranslationJob:
         created_at: Timestamp when the job was created
         completed_at: Timestamp when the job completed (None if not completed)
         language_pair: Language pair used for translation
-        output_mode: Output mode for translations ("replace", "append", "interleaved")
+        output_mode: Output mode for translations ("replace", "append", "prepend", "interleave", "interleave_reverse")
     """
     id: str
     status: JobStatus
@@ -737,7 +737,7 @@ class Mutation:
             file_ids: List of file IDs to translate
             language_pair_id: ID of the language pair to use
             catalog_ids: Optional list of catalog IDs for term injection (in priority order)
-            output_mode: One of "replace", "append", "interleaved" (default: "replace")
+            output_mode: One of "replace", "append", "prepend", "interleave", "interleave_reverse" (default: "replace")
 
         Returns:
             TranslationJob: The created job

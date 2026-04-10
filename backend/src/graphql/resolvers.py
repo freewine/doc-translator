@@ -547,7 +547,7 @@ async def resolve_create_translation_job(
         file_ids: List of file IDs to translate
         language_pair_id: ID of language pair to use
         catalog_ids: Optional list of catalog IDs for term injection (in priority order)
-        output_mode: One of "replace", "append", "interleaved" (default: "replace")
+        output_mode: One of "replace", "append", "prepend", "interleave", "interleave_reverse" (default: "replace")
 
     Returns:
         Created translation job
@@ -556,14 +556,14 @@ async def resolve_create_translation_job(
         AuthenticationError: If user is not authenticated
         ValidationError: If inputs are invalid
         RuntimeError: If language_pair_service is not available
-        ValueError: If output_mode is not one of "replace", "append", "interleaved"
+        ValueError: If output_mode is not one of "replace", "append", "prepend", "interleave", "interleave_reverse"
     """
     import asyncio
     import shutil
     import tempfile
     from pathlib import Path
 
-    valid_output_modes = {"replace", "append", "interleaved"}
+    valid_output_modes = {"replace", "append", "prepend", "interleave", "interleave_reverse"}
     if output_mode not in valid_output_modes:
         raise ValidationError(f"Invalid output_mode: {output_mode}. Must be one of: {', '.join(sorted(valid_output_modes))}")
 
