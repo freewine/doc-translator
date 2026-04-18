@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 MAX_TERM_LENGTH = 500
-MAX_TERMS_FOR_TRANSLATION = 200
+MAX_TERMS_FOR_TRANSLATION = 5000
 
 
 class ThesaurusServiceError(Exception):
@@ -752,7 +752,7 @@ class ThesaurusService:
         
         # Limit to max_terms
         if len(all_terms) > max_terms:
-            self._logger.warning(
+            self._logger.info(
                 f"Term pairs truncated from {len(all_terms)} to {max_terms}"
             )
             all_terms = all_terms[:max_terms]
